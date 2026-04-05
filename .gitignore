@@ -1,0 +1,10 @@
+build/
+install/
+log/
+CLAUDE.md
+*.pyc
+__pycache__/
+
+# 외부 패키지 (별도 클론 필요)
+src/doosan-robot2/
+src/onrobot-ros2/
