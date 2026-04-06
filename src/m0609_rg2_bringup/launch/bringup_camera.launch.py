@@ -8,11 +8,11 @@ from ament_index_python.packages import get_package_share_directory
 
 def generate_launch_description():
 
-    # xacro 파일 경로
+    # xacro 파일 경로 (카메라 포함 버전)
     xacro_file = os.path.join(
         get_package_share_directory('m0609_rg2_bringup'),
         'urdf',
-        'm0609_with_rg2.urdf.xacro'
+        'm0609_with_rg2_camera.urdf.xacro'
     )
 
     # rviz 설정 파일 경로

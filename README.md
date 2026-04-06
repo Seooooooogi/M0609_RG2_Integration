@@ -9,11 +9,14 @@ Doosan M0609 협동로봇 + OnRobot RG2 그리퍼 통합 ROS2 워크스페이스
 - Ubuntu 22.04
 - ROS2 Humble
 - MoveIt2
+- Intel RealSense SDK 2.0
 
 ```bash
 sudo apt install ros-humble-moveit
 sudo apt install ros-humble-joint-state-publisher-gui
 sudo apt install ros-humble-xacro
+sudo apt install ros-humble-realsense2-camera
+sudo apt install ros-humble-realsense2-description
 ```
 
 ---
@@ -49,8 +52,11 @@ source install/setup.bash
 source /opt/ros/humble/setup.bash
 source ~/doosan_gripper_ws/install/setup.bash
 
-# 브링업 (rviz 시각화)
+# 브링업 (rviz 시각화, 그리퍼만)
 ros2 launch m0609_rg2_bringup bringup.launch.py
+
+# 브링업 (rviz 시각화, RealSense 카메라 포함)
+ros2 launch m0609_rg2_bringup bringup_camera.launch.py
 
 # MoveIt2 (경로 계획)
 ros2 launch m0609_rg2_moveit moveit.launch.py

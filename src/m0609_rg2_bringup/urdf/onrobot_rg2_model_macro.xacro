@@ -97,7 +97,6 @@
     <gazebo reference="${prefix}${fingerprefix}_inner_finger">
       <kp>1000000.0</kp>
       <kd>1.0</kd>
-      <kd>1.0</kd>
       <mu1>1.0</mu1>
       <mu2>1.0</mu2>
       <minDepth>0.00001</minDepth>
@@ -128,7 +127,8 @@
     </joint>
   </xacro:macro>
 
-  <xacro:include filename="$(find onrobot_rg_description)/urdf/onrobot_rg2.xacro" />
+  <xacro:include filename="$(find m0609_rg2_bringup)/urdf/onrobot_rg2.xacro"/>
+
 
   <xacro:macro name="finger_joint" params="prefix">
     <joint name="${prefix}finger_joint" type="revolute">
