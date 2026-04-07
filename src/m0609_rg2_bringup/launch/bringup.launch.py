@@ -19,7 +19,6 @@ def generate_launch_description():
         DeclareLaunchArgument('mode',       default_value='virtual',     description='Operation mode: real | virtual'),
         DeclareLaunchArgument('host',       default_value='127.0.0.1',   description='Robot IP (real mode)'),
         DeclareLaunchArgument('port',       default_value='12345',        description='Robot port'),
-        DeclareLaunchArgument('gripper_ip', default_value='192.168.1.1', description='OnRobot compute box IP (real mode)'),
     ]
 
     is_real    = PythonExpression(["'", LaunchConfiguration('mode'), "' == 'real'"])
@@ -96,7 +95,7 @@ def generate_launch_description():
         output='screen',
         parameters=[{
             '/onrobot/control':      'modbus',
-            '/onrobot/ip':           LaunchConfiguration('gripper_ip'),
+            '/onrobot/ip':           '192.168.1.1',
             '/onrobot/port':         502,
             '/onrobot/changer_addr': 65,
             '/onrobot/gripper':      'rg2',

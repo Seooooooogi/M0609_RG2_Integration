@@ -19,7 +19,6 @@ def generate_launch_description():
         DeclareLaunchArgument('mode',       default_value='virtual',     description='Operation mode: real | virtual'),
         DeclareLaunchArgument('host',       default_value='127.0.0.1',   description='Robot IP (real mode)'),
         DeclareLaunchArgument('port',       default_value='12345',        description='Robot port'),
-        DeclareLaunchArgument('gripper_ip', default_value='192.168.1.1', description='OnRobot compute box IP (real mode)'),
     ]
 
     is_real    = PythonExpression(["'", LaunchConfiguration('mode'), "' == 'real'"])
@@ -96,7 +95,7 @@ def generate_launch_description():
         output='screen',
         parameters=[{
             '/onrobot/control':      'modbus',
-            '/onrobot/ip':           LaunchConfiguration('gripper_ip'),
+            '/onrobot/ip':           '192.168.1.1',
             '/onrobot/port':         502,
             '/onrobot/changer_addr': 65,
             '/onrobot/gripper':      'rg2',
@@ -159,6 +158,20 @@ def generate_launch_description():
         arguments=['0.0', '0.0', '0.0', '0.0', '0.0', '0.0', 'world', 'base_link'],
     )
 
+    # ── RealSense 카메라 드라이버 ─────────────────────────────────────
+    realsense_node = Node(
+        package='realsense2_camera',
+        executable='realsense2_camera_node',
+        parameters=[{
+            'enable_color': True,
+            'enable_depth': True,
+            'align_depth.enable': True,
+            'pointcloud.enable': True,
+            'enable_sync': True,
+        }],
+        output='screen',
+    )
+
     # ── RViz ──────────────────────────────────────────────────────────
     rviz_node = Node(
         package='rviz2',
@@ -178,5 +191,6 @@ def generate_launch_description():
         robot_state_publisher,
         joint_state_publisher_gui,
         static_tf,
+        realsense_node,
         rviz_node,
     ])
