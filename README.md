@@ -17,6 +17,9 @@ sudo apt install ros-humble-joint-state-publisher-gui
 sudo apt install ros-humble-xacro
 sudo apt install ros-humble-realsense2-camera
 sudo apt install ros-humble-realsense2-description
+
+# OnRobot 그리퍼 드라이버 의존성
+pip3 install pymodbus==3.3.2
 ```
 
 ---

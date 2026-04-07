@@ -24,7 +24,6 @@
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0"/>
       <geometry>
-        <!-- STL이 mm 단위로 저장되어 있으면 scale 적용 -->
         <mesh filename="package://m0609_rg2_bringup/meshes/mount_bracket.stl"
               scale="0.001 0.001 0.001"/>
       </geometry>
@@ -32,7 +31,7 @@
     </visual>
 
     <collision>
-      <!-- 충돌 모델: 단순 박스로 근사 (성능 최적화) -->
+      <!-- 충돌 모델: 단순 박스로 근사 -->
       <origin xyz="0 0 0.060499" rpy="0 0 0"/>
       <geometry>
         <box size="0.094985 0.011450 0.120998"/>
@@ -62,13 +61,7 @@
         브라켓 끝 = Z=-50.37mm
 
       목표: STL Z축 → tool0 −Y축 (브라켓이 옆으로 뻗도록)
-        step1: X축 기준 −90도 → STL Z가 tool0 +Y로
-        step2: Z축 기준 180도 → +Y를 −Y로
-        결과 rpy = "-1.5708 0 3.14159"
-
       xyz: 플랜지면이 tool0 원점에 오도록
-        플랜지면 Z=+70.5mm → 0.0705m 오프셋 (브라켓 회전 후 Y방향)
-        Y오프셋은 0 (플랜지 중심이 tool0에 닿음)
     -->
     <origin xyz="-0.002 -0.01 0.01" rpy="0 1.5708 -1.5708"/>
   </joint>
@@ -78,9 +71,6 @@
 
   <!-- ───────────── bracket → camera 조인트 ───────────── -->
   <!--
-    sensor_d435 매크로의 parent를 bracket_link로 지정
-    origin: 브라켓 암 끝 위치 + 카메라 방향 조정
-    use_nominal_extrinsics=true → depth/color/infra TF 프레임 자동 생성
   -->
   <xacro:sensor_d435 parent="bracket_link" name="camera" use_nominal_extrinsics="true">
     <origin xyz="0 0.015 0.07" rpy="3.1416 0 1.5708"/>

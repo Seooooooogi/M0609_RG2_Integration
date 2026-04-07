@@ -19,6 +19,7 @@
   <!-- reference package -->
   <exec_depend>dsr_description2</exec_depend>
   <exec_depend>onrobot_rg_description</exec_depend>
+  <exec_depend>onrobot_rg_msgs</exec_depend>
 
   <export>
     <build_type>ament_cmake</build_type>
