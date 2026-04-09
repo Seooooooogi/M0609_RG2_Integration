@@ -4,6 +4,13 @@ log/
 CLAUDE.md
 *.pyc
 __pycache__/
+.env
+.env.local
+
+# AI 세션 / 플래닝 산출물
+memory/
+docs/plans/
+docs/harness-tests.md
 
 # 외부 패키지 (별도 클론 필요)
 src/doosan-robot2/
