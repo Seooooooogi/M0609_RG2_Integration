@@ -27,14 +27,14 @@ pip3 install pymodbus==3.3.2
 ## 의존성 패키지 설치
 
 ```bash
-mkdir -p ~/doosan_gripper_ws/src
-cd ~/doosan_gripper_ws/src
+mkdir -p ~/M0609_RG2_Integration/src
+cd ~/M0609_RG2_Integration/src
 
 # Doosan 공식 패키지
 git clone https://github.com/doosan-robotics/doosan-robot2
 
-# OnRobot 공식 패키지
-git clone https://github.com/OnRobotApS/onrobot-ros2
+# OnRobot RG2 패키지
+git clone https://github.com/ABC-iRobotics/onrobot-ros2
 ```
 
 ---
@@ -42,7 +42,7 @@ git clone https://github.com/OnRobotApS/onrobot-ros2
 ## 빌드
 
 ```bash
-cd ~/doosan_gripper_ws
+cd ~/M0609_RG2_Integration
 colcon build
 source install/setup.bash
 ```
@@ -53,7 +53,7 @@ source install/setup.bash
 
 ```bash
 source /opt/ros/humble/setup.bash
-source ~/doosan_gripper_ws/install/setup.bash
+source ~/M0609_RG2_Integration/install/setup.bash
 ```
 
 ### Virtual 모드 (시뮬레이션)
