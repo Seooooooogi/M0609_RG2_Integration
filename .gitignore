@@ -4,6 +4,8 @@ log/
 CLAUDE.md
 *.pyc
 __pycache__/
+docs/
+memory/
 
 # 외부 패키지 (별도 클론 필요)
 src/doosan-robot2/
