@@ -17,6 +17,9 @@ sudo apt install ros-humble-joint-state-publisher-gui
 sudo apt install ros-humble-xacro
 sudo apt install ros-humble-realsense2-camera
 sudo apt install ros-humble-realsense2-description
+
+# OnRobot 그리퍼 드라이버 의존성
+pip3 install pymodbus==3.3.2
 ```
 
 ---
@@ -24,14 +27,14 @@ sudo apt install ros-humble-realsense2-description
 ## 의존성 패키지 설치
 
 ```bash
-mkdir -p ~/doosan_gripper_ws/src
-cd ~/doosan_gripper_ws/src
+mkdir -p ~/M0609_RG2_Integration/src
+cd ~/M0609_RG2_Integration/src
 
 # Doosan 공식 패키지
 git clone https://github.com/doosan-robotics/doosan-robot2
 
-# OnRobot 공식 패키지
-git clone https://github.com/OnRobotApS/onrobot-ros2
+# OnRobot RG2 패키지
+git clone https://github.com/ABC-iRobotics/onrobot-ros2
 ```
 
 ---
@@ -39,7 +42,7 @@ git clone https://github.com/OnRobotApS/onrobot-ros2
 ## 빌드
 
 ```bash
-cd ~/doosan_gripper_ws
+cd ~/M0609_RG2_Integration
 colcon build
 source install/setup.bash
 ```
@@ -50,14 +53,62 @@ source install/setup.bash
 
 ```bash
 source /opt/ros/humble/setup.bash
-source ~/doosan_gripper_ws/install/setup.bash
+source ~/M0609_RG2_Integration/install/setup.bash
+```
 
-# 브링업 (rviz 시각화, 그리퍼만)
+### Virtual 모드 (시뮬레이션)
+
+```bash
+# 브링업 (그리퍼만)
 ros2 launch m0609_rg2_bringup bringup.launch.py
 
-# 브링업 (rviz 시각화, RealSense 카메라 포함)
+# 브링업 (RealSense 카메라 포함)
 ros2 launch m0609_rg2_bringup bringup_camera.launch.py
 
-# MoveIt2 (경로 계획)
+# MoveIt2
 ros2 launch m0609_rg2_moveit moveit.launch.py
 ```
+
+### Real 모드 (실제 로봇)
+
+> **사전 조건**
+> - 로봇 IP: `192.168.1.100` (DRCF 연결)
+> - 그리퍼 IP: `192.168.1.1` (OnRobot 컴퓨트박스, 고정)
+> - UDP 포트 권한 설정 (최초 1회):
+>   ```bash
+>   sudo sysctl -w net.ipv4.ip_unprivileged_port_start=0
+>   # 재부팅 후에도 유지하려면:
+>   echo 'net.ipv4.ip_unprivileged_port_start=0' | sudo tee /etc/sysctl.d/99-ros2-doosan.conf
+>   ```
+
+```bash
+# 브링업 (그리퍼만)
+ros2 launch m0609_rg2_bringup bringup.launch.py mode:=real host:=192.168.1.100
+
+# 브링업 (RealSense 카메라 포함)
+ros2 launch m0609_rg2_bringup bringup_camera.launch.py mode:=real host:=192.168.1.100
+
+# MoveIt2
+ros2 launch m0609_rg2_moveit moveit.launch.py
+```
+
+---
+
+## RealSense 카메라
+
+### 주요 토픽
+
+| 토픽 | 설명 |
+|------|------|
+| `/camera/color/image_raw` | RGB 컬러 이미지 |
+| `/camera/aligned_depth_to_color/image_raw` | 컬러에 정렬된 뎁스 이미지 |
+| `/camera/depth/color/points` | RGB 포인트클라우드 |
+| `/camera/color/camera_info` | 컬러 카메라 내부 파라미터 |
+
+### RViz 설정
+
+`default.rviz`에 아래 display가 미리 구성되어 있음:
+
+- **Color Image** — `/camera/color/image_raw`
+- **Depth Image** — `/camera/aligned_depth_to_color/image_raw`
+- **PointCloud2** — `/camera/depth/color/points`
