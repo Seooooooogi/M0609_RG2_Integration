@@ -157,7 +157,7 @@ world
 ## 디렉토리 구조
 
 ```
-doosan_gripper_ws/
+M0609_RG2_Integration/
 └── src/
     ├── m0609_rg2_bringup/          # 커스텀 브링업 패키지
     │   ├── launch/
