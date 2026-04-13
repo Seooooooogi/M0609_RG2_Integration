@@ -112,3 +112,79 @@ ros2 launch m0609_rg2_moveit moveit.launch.py
 - **Color Image** — `/camera/color/image_raw`
 - **Depth Image** — `/camera/aligned_depth_to_color/image_raw`
 - **PointCloud2** — `/camera/depth/color/points`
+
+---
+
+## TF 구조
+
+### bringup.launch.py (그리퍼만)
+
+```
+world
+└── base_link
+    └── link1 → link2 → link3 → link4 → link5 → link6
+                                                    └── tool0
+                                                        └── rg2_base_link
+                                                            ├── rg2_left_outer_knuckle
+                                                            │   ├── rg2_left_inner_knuckle
+                                                            │   └── rg2_left_inner_finger
+                                                            └── rg2_right_outer_knuckle
+                                                                ├── rg2_right_inner_knuckle
+                                                                └── rg2_right_inner_finger
+```
+
+### bringup_camera.launch.py (카메라 포함)
+
+```
+world
+└── base_link
+    └── link1 → ... → tool0
+                       ├── rg2_base_link          (그리퍼, 위와 동일)
+                       └── bracket_link           (마운트 브라켓)
+                           └── camera_link
+                               ├── camera_color_frame / camera_color_optical_frame
+                               ├── camera_depth_frame / camera_depth_optical_frame
+                               ├── camera_infra1_frame / camera_infra1_optical_frame
+                               └── camera_infra2_frame / camera_infra2_optical_frame
+```
+
+> `world → base_link` 는 `static_transform_publisher` (identity transform)
+> `tool0 → rg2_base_link` 는 `joint0` (fixed)
+> `tool0 → bracket_link` 는 `tool0_to_bracket` (fixed)
+
+---
+
+## 디렉토리 구조
+
+```
+doosan_gripper_ws/
+└── src/
+    ├── m0609_rg2_bringup/          # 커스텀 브링업 패키지
+    │   ├── launch/
+    │   │   ├── bringup.launch.py           # 로봇 + 그리퍼
+    │   │   └── bringup_camera.launch.py    # 로봇 + 그리퍼 + RealSense
+    │   ├── meshes/
+    │   │   └── mount_bracket.stl
+    │   ├── rviz/
+    │   │   ├── default.rviz
+    │   │   └── moveit.rviz
+    │   ├── scripts/
+    │   │   └── gripper_joint_state_publisher.py   # onrobot_joint_states → gripper_joint_states
+    │   └── urdf/
+    │       ├── m0609_with_rg2.urdf.xacro           # 팔 + 그리퍼 통합 URDF
+    │       ├── m0609_with_rg2_camera.urdf.xacro    # 팔 + 그리퍼 + 카메라 통합 URDF
+    │       ├── onrobot_rg2.xacro                   # RG2 베이스 링크 정의
+    │       ├── onrobot_rg2_model_macro.xacro        # RG2 링크/조인트 매크로
+    │       └── realsense_bracket.urdf.xacro         # 브라켓 + D435 마운트
+    ├── m0609_rg2_moveit/           # 커스텀 MoveIt2 패키지
+    │   ├── config/
+    │   │   ├── joint_limits.yaml
+    │   │   ├── kinematics.yaml
+    │   │   ├── m0609_rg2.srdf
+    │   │   ├── moveit_controllers.yaml
+    │   │   └── ompl_planning.yaml
+    │   └── launch/
+    │       └── moveit.launch.py
+    ├── doosan-robot2/              # 외부 패키지 — read-only
+    └── onrobot-ros2/               # 외부 패키지 — read-only
+```
