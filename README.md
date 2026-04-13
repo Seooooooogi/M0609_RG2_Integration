@@ -148,8 +148,8 @@ world
                                └── camera_infra2_frame / camera_infra2_optical_frame
 ```
 
-> `world → base_link` 는 `static_transform_publisher` (identity transform)
-> `tool0 → rg2_base_link` 는 `joint0` (fixed)
+> `world → base_link` 는 `static_transform_publisher` (identity transform)  
+> `tool0 → rg2_base_link` 는 `joint0` (fixed)  
 > `tool0 → bracket_link` 는 `tool0_to_bracket` (fixed)
 
 ---
