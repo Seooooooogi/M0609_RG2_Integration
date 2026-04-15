@@ -12,11 +12,23 @@ Doosan M0609 협동로봇 + OnRobot RG2 그리퍼 통합 ROS2 워크스페이스
 - Intel RealSense SDK 2.0
 
 ```bash
+sudo apt update
+
+# 기본 도구 및 라이브러리
+sudo apt install libpoco-dev
+
+# ROS2 빌드 및 실행 관련
 sudo apt install ros-humble-moveit
 sudo apt install ros-humble-joint-state-publisher-gui
 sudo apt install ros-humble-xacro
 sudo apt install ros-humble-realsense2-camera
 sudo apt install ros-humble-realsense2-description
+sudo apt install ros-humble-gazebo-ros-pkgs
+
+# 제어 및 하드웨어 인터페이스
+sudo apt install ros-humble-hardware-interface
+sudo apt install ros-humble-ros2-control
+sudo apt install ros-humble-ros2-controllers
 
 # OnRobot 그리퍼 드라이버 의존성
 pip3 install pymodbus==3.3.2

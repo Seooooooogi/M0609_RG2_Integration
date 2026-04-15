@@ -1,13 +1,23 @@
 build/
 install/
 log/
+docs/
+.claude/
+AGENTS.md
 CLAUDE.md
 *.pyc
 __pycache__/
-docs/
 memory/
+
+# Dataset and Models
+data/
+datasets/
+models/
+*.hdf5
+*.parquet
 .env
 .env.local
+.env.example
 
 # AI 세션 / 플래닝 산출물
 docs/harness-tests.md
