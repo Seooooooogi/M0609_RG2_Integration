@@ -25,7 +25,7 @@ def generate_launch_description():
     is_virtual = PythonExpression(["'", LaunchConfiguration('mode'), "' == 'virtual'"])
 
     # ── [virtual] DRCF 에뮬레이터 (Docker) ───────────────────────────
-    # virtual mode 시 localhost:12345에서 DRCF 에뮬레이터를 실행
+    # virtual mode 시 localhost에서 DRCF 에뮬레이터를 실행
     # 종료 시 terminate_drcf()로 컨테이너 자동 정리
     run_emulator_node = Node(
         package='dsr_bringup2',
