@@ -84,7 +84,7 @@ ros2 launch m0609_rg2_moveit moveit.launch.py
 ### Real 모드 (실제 로봇)
 
 > **사전 조건**
-> - 로봇 IP: `192.168.1.100` (DRCF 연결)
+> - 로봇 IP: `192.168.1.100`
 > - 그리퍼 IP: `192.168.1.1` (OnRobot 컴퓨트박스, 고정)
 > - UDP 포트 권한 설정 (최초 1회):
 >   ```bash
