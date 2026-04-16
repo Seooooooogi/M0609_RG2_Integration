@@ -117,6 +117,18 @@ ros2 launch m0609_rg2_moveit moveit.launch.py
 | `/camera/depth/color/points` | RGB 포인트클라우드 |
 | `/camera/color/camera_info` | 컬러 카메라 내부 파라미터 |
 
+### 초기 설정 (최초 1회)
+
+udev rules가 없으면 스트리밍 중 `xioctl(VIDIOC_QBUF) failed — No such device` 에러가 발생한다.
+
+```bash
+sudo curl https://raw.githubusercontent.com/IntelRealSense/librealsense/master/config/99-realsense-libusb.rules \
+  -o /etc/udev/rules.d/99-realsense-libusb.rules
+sudo udevadm control --reload-rules && sudo udevadm trigger
+```
+
+적용 후 USB 재연결 필요.
+
 ### RViz 설정
 
 `default.rviz`에 아래 display가 미리 구성되어 있음:
