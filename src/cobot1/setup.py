@@ -27,6 +27,10 @@ setup(
             'move_basic = cobot1.move_basic:main',
             'grip_test = cobot1.grip_test:main',
             'grip_test_virtual = cobot1.grip_test_virtual:main',
+            'force_test = cobot1.force_test:main',
+            'mini_jog = cobot1.mini_jog:main'
+
+
         ],
     },
 )
