@@ -104,6 +104,37 @@ ros2 launch m0609_rg2_bringup bringup_camera.launch.py mode:=real host:=192.168.
 ros2 launch m0609_rg2_moveit moveit.launch.py
 ```
 
+### cobot1 예제 노드
+
+브링업이 실행 중인 상태에서 별도 터미널로 실행합니다.
+
+```bash
+# 빌드 (최초 1회)
+colcon build --symlink-install --packages-select cobot1
+source install/setup.bash
+
+# 기본 이동 시퀀스 (virtual/real 공통)
+ros2 run cobot1 move_basic
+
+# 그리퍼 grip/release 반복 — real 모드 전용
+ros2 run cobot1 grip_test
+
+# 그리퍼 grip/release 반복 — virtual 모드 전용
+ros2 run cobot1 grip_test_virtual
+```
+
+#### virtual 모드 그리퍼 한계
+
+`grip_test_virtual`은 RViz 시각화 목적의 소프트웨어 시뮬레이션이며 실제 그리퍼 동작과 차이가 있습니다.
+
+| 항목 | real 모드 | virtual 모드 |
+|------|-----------|-------------|
+| 그리퍼 제어 | OnRobot 드라이버 (Modbus TCP) | 해당 없음 |
+| 완료 신호 | 디지털 입력 핀 감지 | 고정 시간 대기 (1.0초) |
+| RViz 그리퍼 상태 | `/gripper_joint_states` (OnRobot 드라이버 발행) | `/gripper_joint_states` (fake publisher 발행) |
+| 파지력 / 접촉 | 실제 물리 동작 | 시뮬레이션 없음 |
+| Tool/TCP 프리셋 | DRCF에 등록된 값 사용 | 설정 스킵 (에뮬레이터 미등록) |
+
 ---
 
 ## RealSense 카메라
@@ -209,6 +240,11 @@ M0609_RG2_Integration/
     │   │   └── ompl_planning.yaml
     │   └── launch/
     │       └── moveit.launch.py
+    ├── cobot1/                     # 예제 태스크 패키지 (전달용)
+    │   └── cobot1/
+    │       ├── move_basic.py           # movej/movel 기본 이동 시퀀스
+    │       ├── grip_test.py            # 디지털 I/O 기반 grip/release (real 모드)
+    │       └── grip_test_virtual.py    # DRCF 에뮬레이터용 grip/release (virtual 모드)
     ├── doosan-robot2/              # 외부 패키지 — read-only
     └── onrobot-ros2/               # 외부 패키지 — read-only
 ```
