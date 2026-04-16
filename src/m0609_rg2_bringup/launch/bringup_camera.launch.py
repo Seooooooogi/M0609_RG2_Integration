@@ -24,6 +24,24 @@ def generate_launch_description():
     is_real    = PythonExpression(["'", LaunchConfiguration('mode'), "' == 'real'"])
     is_virtual = PythonExpression(["'", LaunchConfiguration('mode'), "' == 'virtual'"])
 
+    # ── [virtual] DRCF 에뮬레이터 (Docker) ───────────────────────────
+    run_emulator_node = Node(
+        package='dsr_bringup2',
+        executable='run_emulator',
+        namespace='dsr01',
+        parameters=[
+            {'name':    'dsr01'                      },
+            {'host':    LaunchConfiguration('host')  },
+            {'port':    LaunchConfiguration('port')  },
+            {'mode':    LaunchConfiguration('mode')  },
+            {'model':   'm0609'                      },
+            {'gripper': 'none'                       },
+            {'mobile':  'none'                       },
+        ],
+        condition=IfCondition(is_virtual),
+        output='screen',
+    )
+
     # ── 커스텀 URDF (M0609 + RG2 + RealSense) ────────────────────────
     xacro_file = os.path.join(
         get_package_share_directory('m0609_rg2_bringup'),
@@ -48,7 +66,7 @@ def generate_launch_description():
         ' update_rate:=100',
     ])
 
-    # ── [real] ros2_control_node ──────────────────────────────────────
+    # ── ros2_control_node (virtual/real 공통) ─────────────────────────
     control_node = Node(
         package='controller_manager',
         executable='ros2_control_node',
@@ -58,20 +76,18 @@ def generate_launch_description():
             {'update_rate': 100},
             PathJoinSubstitution([FindPackageShare('dsr_controller2'), 'config', 'dsr_controller2.yaml']),
         ],
-        condition=IfCondition(is_real),
         output='both',
     )
 
-    # ── [real] joint_state_broadcaster (/dsr01/joint_states 퍼블리시) ─
+    # ── joint_state_broadcaster (/dsr01/joint_states 퍼블리시) ────────
     joint_state_broadcaster_spawner = Node(
         package='controller_manager',
         executable='spawner',
         namespace='dsr01',
         arguments=['joint_state_broadcaster', '-c', 'controller_manager'],
-        condition=IfCondition(is_real),
     )
 
-    # ── [real] dsr_controller2 ────────────────────────────────────────
+    # ── dsr_controller2 (motion service 등록) ─────────────────────────
     robot_controller_spawner = Node(
         package='controller_manager',
         executable='spawner',
@@ -83,7 +99,6 @@ def generate_launch_description():
             target_action=joint_state_broadcaster_spawner,
             on_exit=[robot_controller_spawner],
         ),
-        condition=IfCondition(is_real),
     )
 
     # ── [real] OnRobot RG2 드라이버 ──────────────────────────────────
@@ -115,19 +130,16 @@ def generate_launch_description():
         output='screen',
     )
 
-    # ── [real] joint_state_publisher ─────────────────────────────────
-    # arm 6축(/dsr01/joint_states) + 그리퍼(/gripper_joint_states) 병합
-    joint_state_publisher_real = Node(
+    # ── joint_state_publisher (virtual/real 공통) ─────────────────────
+    # virtual: /gripper_joint_states 없음 → gripper joint 0으로 채워짐
+    joint_state_publisher_node = Node(
         package='joint_state_publisher',
         executable='joint_state_publisher',
         name='joint_state_publisher',
         parameters=[{'source_list': ['/dsr01/joint_states', '/gripper_joint_states']}],
-        condition=IfCondition(is_real),
     )
 
     # ── robot_state_publisher ─────────────────────────────────────────
-    # real:    joint_state_publisher가 병합한 /joint_states 수신
-    # virtual: joint_state_publisher_gui가 /joint_states 퍼블리시
     robot_state_publisher = Node(
         package='robot_state_publisher',
         executable='robot_state_publisher',
@@ -139,14 +151,6 @@ def generate_launch_description():
                 value_type=str
             )
         }],
-    )
-
-    # ── [virtual] Joint State Publisher GUI ───────────────────────────
-    joint_state_publisher_gui = Node(
-        package='joint_state_publisher_gui',
-        executable='joint_state_publisher_gui',
-        name='joint_state_publisher_gui',
-        condition=IfCondition(is_virtual),
     )
 
     # ── Static TF (world → base_link) ────────────────────────────────
@@ -182,14 +186,14 @@ def generate_launch_description():
     )
 
     return LaunchDescription(args + [
+        run_emulator_node,
         control_node,
         joint_state_broadcaster_spawner,
         delay_controller,
         onrobot_driver,
         gripper_joint_state_publisher,
-        joint_state_publisher_real,
+        joint_state_publisher_node,
         robot_state_publisher,
-        joint_state_publisher_gui,
         static_tf,
         realsense_node,
         rviz_node,

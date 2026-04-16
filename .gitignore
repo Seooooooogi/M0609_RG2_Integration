@@ -1,13 +1,14 @@
 build/
 install/
 log/
-docs/
 .claude/
 AGENTS.md
 CLAUDE.md
 *.pyc
 __pycache__/
 memory/
+docs/
+tasks/
 
 # Dataset and Models
 data/
