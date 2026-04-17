@@ -105,6 +105,16 @@ def generate_launch_description():
         ),
     )
 
+    # ── [virtual] GripperVirtualNode (/onrobot/sendCommand 서비스) ───
+    is_virtual_gripper = PythonExpression(["'", LaunchConfiguration('mode'), "' == 'virtual'"])
+    gripper_virtual_node = Node(
+        package='m0609_rg2_bringup',
+        executable='gripper_virtual_node.py',
+        name='gripper_virtual_node',
+        condition=IfCondition(is_virtual_gripper),
+        output='screen',
+    )
+
     # ── [real] OnRobot RG2 드라이버 ──────────────────────────────────
     # /joint_states → /onrobot_joint_states 로 remap (joint_state_publisher와 충돌 방지)
     onrobot_driver = Node(
@@ -135,8 +145,8 @@ def generate_launch_description():
     )
 
     # ── joint_state_publisher (virtual/real 공통) ─────────────────────
-    # arm 6축(/dsr01/joint_states) + 그리퍼(/gripper_joint_states, real only) 병합
-    # virtual: /gripper_joint_states 없음 → gripper joint 0으로 채워짐
+    # dsr01/joint_states와 /gripper_joint_states 통합 토픽
+    # virtual 환경에서는 /gripper_joint_states 없음(DRCF 문제) → gripper joint 0으로 채워짐
     joint_state_publisher_node = Node(
         package='joint_state_publisher',
         executable='joint_state_publisher',
@@ -178,6 +188,7 @@ def generate_launch_description():
 
     return LaunchDescription(args + [
         run_emulator_node,
+        gripper_virtual_node,
         control_node,
         joint_state_broadcaster_spawner,
         delay_controller,
