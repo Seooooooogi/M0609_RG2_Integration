@@ -51,6 +51,33 @@ git clone https://github.com/ABC-iRobotics/onrobot-ros2
 
 ---
 
+## 사전 조건 (Real 모드)
+
+> - 로봇 IP: `192.168.1.100`
+> - 그리퍼 IP: `192.168.1.1` (OnRobot 컴퓨트박스, 고정)
+> - UDP 포트 권한 설정 (최초 1회):
+>   ```bash
+>   sudo sysctl -w net.ipv4.ip_unprivileged_port_start=0
+>   # 재부팅 후에도 유지하려면:
+>   echo 'net.ipv4.ip_unprivileged_port_start=0' | sudo tee /etc/sysctl.d/99-ros2-doosan.conf
+>   ```
+
+---
+
+## RealSense 초기 설정 (최초 1회)
+
+udev rules가 없으면 스트리밍 중 `xioctl(VIDIOC_QBUF) failed — No such device` 에러가 발생한다.
+
+```bash
+sudo curl https://raw.githubusercontent.com/IntelRealSense/librealsense/master/config/99-realsense-libusb.rules \
+  -o /etc/udev/rules.d/99-realsense-libusb.rules
+sudo udevadm control --reload-rules && sudo udevadm trigger
+```
+
+적용 후 USB 재연결 필요.
+
+---
+
 ## 빌드
 
 ```bash
@@ -82,16 +109,6 @@ ros2 launch m0609_rg2_moveit moveit.launch.py
 ```
 
 ### Real 모드 (실제 로봇)
-
-> **사전 조건**
-> - 로봇 IP: `192.168.1.100`
-> - 그리퍼 IP: `192.168.1.1` (OnRobot 컴퓨트박스, 고정)
-> - UDP 포트 권한 설정 (최초 1회):
->   ```bash
->   sudo sysctl -w net.ipv4.ip_unprivileged_port_start=0
->   # 재부팅 후에도 유지하려면:
->   echo 'net.ipv4.ip_unprivileged_port_start=0' | sudo tee /etc/sysctl.d/99-ros2-doosan.conf
->   ```
 
 ```bash
 # 브링업 (그리퍼만)
@@ -128,18 +145,6 @@ virtual 모드에서 그리퍼는 `gripper_virtual_node`(bringup에 포함)가 `
 | `/camera/aligned_depth_to_color/image_raw` | 컬러에 정렬된 뎁스 이미지 |
 | `/camera/depth/color/points` | RGB 포인트클라우드 |
 | `/camera/color/camera_info` | 컬러 카메라 내부 파라미터 |
-
-### 초기 설정 (최초 1회)
-
-udev rules가 없으면 스트리밍 중 `xioctl(VIDIOC_QBUF) failed — No such device` 에러가 발생한다.
-
-```bash
-sudo curl https://raw.githubusercontent.com/IntelRealSense/librealsense/master/config/99-realsense-libusb.rules \
-  -o /etc/udev/rules.d/99-realsense-libusb.rules
-sudo udevadm control --reload-rules && sudo udevadm trigger
-```
-
-적용 후 USB 재연결 필요.
 
 ### RViz 설정
 
