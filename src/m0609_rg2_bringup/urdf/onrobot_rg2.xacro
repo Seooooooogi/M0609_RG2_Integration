@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <robot xmlns:xacro="http://ros.org/wiki/xacro">
-  <xacro:macro name="base_link" params="prefix effector_base:=world">
+  <xacro:macro name="base_link" params="prefix effector_base:=world has_bracket:=false">
     <link name="${prefix}base_link">
       <inertial>
         <origin xyz="0.0 0.0 0.0" rpy="0 0 0" />
@@ -32,7 +32,12 @@
     <joint name="joint0" type="fixed">
         <parent link="${effector_base}"/>
         <child link="${prefix}base_link"/>
-        <origin xyz= "0.004 0. 0." rpy="1.5708 0 1.5708" />
+        <xacro:if value="${has_bracket}">
+          <origin xyz="0.004 0. 0." rpy="1.5708 0 1.5708" />
+        </xacro:if>
+        <xacro:unless value="${has_bracket}">
+          <origin xyz="0. 0. 0." rpy="1.5708 0 1.5708" />
+        </xacro:unless>
     </joint>
     <gazebo reference="${prefix}base_link">
       <mu1>1.0</mu1>

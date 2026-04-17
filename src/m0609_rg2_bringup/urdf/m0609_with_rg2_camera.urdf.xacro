@@ -8,5 +8,5 @@
   <xacro:include filename="$(find m0609_rg2_bringup)/urdf/realsense_bracket.urdf.xacro"/>
 
   <!-- RG2 그리퍼를 tool0에 부착 -->
-  <xacro:onrobot_rg2 prefix="rg2_" effector_base="tool0"/>
+  <xacro:onrobot_rg2 prefix="rg2_" effector_base="tool0" has_bracket="true"/>
 </robot>
