@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-rosbag_to_lerobot.py — Convert ROS2 rosbag to LeRobot v3.0 dataset format.
+rosbag_to_lerobot.py — Convert ROS2 rosbag to LeRobot v2.1 dataset format.
 
 Output layout (LeRobot v3.0):
   <output_dir>/
@@ -30,6 +30,7 @@ Usage:
 """
 import argparse
 import json
+import math
 import os
 import struct
 import subprocess
@@ -68,7 +69,6 @@ _RG2_THETA1, _RG2_THETA3, _RG2_DY = 1.41371, 0.76794, -0.0144
 
 def gripper_angle_to_width(angle: float) -> float:
     """finger_joint angle (rad) → gripper opening width (m)."""
-    import math
     return (math.cos(angle + _RG2_THETA3) * _RG2_L3
             + _RG2_DY + _RG2_L1 * math.cos(_RG2_THETA1)) * 2
 
@@ -254,11 +254,17 @@ def write_parquet(rows: list[dict], output_path: Path):
 
 def _next_global_index(output_dir: Path) -> int:
     """Return the next global frame index by scanning existing parquet files."""
-    existing = sorted((output_dir / "data").glob("chunk-*/*.parquet"))
+    data_dir = output_dir / "data"
+    if not data_dir.exists():
+        return 0
+    existing = sorted(data_dir.glob("chunk-*/*.parquet"))
     if not existing:
         return 0
     last_table = pq.read_table(str(existing[-1]), columns=["index"])
-    return int(last_table["index"].to_pylist()[-1]) + 1
+    indices = last_table["index"].to_pylist()
+    if not indices:
+        return 0
+    return int(indices[-1]) + 1
 
 
 # ── Meta Writers ─────────────────────────────────────────────────────────────
@@ -469,7 +475,7 @@ def convert(
 # ── CLI ───────────────────────────────────────────────────────────────────────
 
 def main():
-    parser = argparse.ArgumentParser(description="Convert ROS2 rosbag → LeRobot v3.0 dataset")
+    parser = argparse.ArgumentParser(description="Convert ROS2 rosbag → LeRobot v2.1 dataset")
     parser.add_argument("--bag",           required=True, type=Path, help="Path to rosbag directory")
     parser.add_argument("--output",        required=True, type=Path, help="Output dataset directory")
     parser.add_argument("--task",          default="pick up the object", help="Task description string")

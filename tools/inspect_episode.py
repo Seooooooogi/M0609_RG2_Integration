@@ -73,7 +73,8 @@ def inspect(parquet_path: Path, plot: bool = False):
     for i in range(min(6, n_dims)):
         print(f"  {JOINT_NAMES[i]}: {np.degrees(diff[:, i]).mean():.4f}°")
     if has_gripper:
-        print(f"  grip: {np.degrees(diff[:, 6]).mean():.4f} rad")
+        grip_diff_mm = np.array([gripper_angle_to_width_mm(a) for a in diff[:, 6]])
+        print(f"  grip: {grip_diff_mm.mean():.4f} mm")
 
     # ── Plot ─────────────────────────────────────────────────────────────────
     if plot:
