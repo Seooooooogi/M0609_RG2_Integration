@@ -179,11 +179,12 @@ pip install pandas pyarrow imageio imageio-ffmpeg "numpy<2"
 ros2 launch m0609_rg2_bringup bringup_dual_camera.launch.py \
     mode:=real host:=192.168.1.100
 
-# 녹화 시작
+# 녹화 시작 (그리퍼 width 포함 시 /joint_states 추가)
 ros2 bag record \
     /camera_gripper/camera_gripper/color/image_raw \
     /camera_global/camera_global/color/image_raw \
     /dsr01/joint_states \
+    /joint_states \
     -o ~/rosbag_recordings/<episode_name>
 
 # 녹화 중단: Ctrl+C
@@ -196,7 +197,9 @@ ros2 bag record \
 
 ---
 
-### 2단계 — LeRobot v3.0 포맷 변환
+### 2단계 — LeRobot v2.1 포맷 변환
+
+> openpi(Physical Intelligence)가 pin한 lerobot 커밋(`0cf86487`)의 `CODEBASE_VERSION = "v2.1"` 에 맞춘 포맷이다.
 
 ```bash
 source /opt/ros/humble/setup.bash
@@ -208,7 +211,7 @@ python3 tools/rosbag_to_lerobot.py \
     --episode-index 0
 ```
 
-에피소드를 추가할 때는 `--episode-index`를 1씩 늘려 같은 `--output` 경로를 재사용한다:
+에피소드를 추가할 때는 `--episode-index`를 1씩 늘려 같은 `--output` 경로를 재사용한다. 글로벌 `index` 컬럼은 기존 parquet 파일을 스캔해 자동으로 이어진다:
 
 ```bash
 python3 tools/rosbag_to_lerobot.py \
@@ -232,27 +235,42 @@ python3 tools/rosbag_to_lerobot.py \
 
 ---
 
-### 출력 구조 (LeRobot v3.0)
+### 출력 구조 (LeRobot v2.1)
 
 ```
 <dataset_name>/
 ├── data/
 │   └── chunk-000/
-│       └── episode_000000.parquet   # frame_index, timestamp, observation.state (6D), action
+│       └── episode_000000.parquet   # frame_index, index, timestamp, episode_index, task_index,
+│                                    # observation.state (6D 또는 7D), action
 ├── videos/
 │   └── chunk-000/
 │       ├── observation.images.camera_gripper_episode_000000.mp4   # 손목 카메라 224×224 H.264
 │       └── observation.images.camera_global_episode_000000.mp4    # 고정 카메라 224×224 H.264
 └── meta/
-    ├── info.json      # 데이터셋 스펙 (fps, features, robot_type 등)
+    ├── info.json      # 데이터셋 스펙 (codebase_version, fps, features, robot_type 등)
     ├── stats.json     # observation.state / action 통계
     ├── tasks.jsonl    # 태스크 목록
     └── episodes.jsonl # 에피소드 목록 (길이 포함)
 ```
 
-> `observation.state` / `action` joint 순서:  
-> `[joint_1, joint_2, joint_4, joint_5, joint_3, joint_6]`  
-> `/dsr01/joint_states` 발행 순서와 동일.
+> **`observation.state` / `action` 차원:**
+> - 그리퍼 상태 토픽 없이 녹화 → **6D** `[joint_1, joint_2, joint_4, joint_5, joint_3, joint_6]`
+> - `/joint_states` 포함 녹화 → **7D** `[joint_1, joint_2, joint_4, joint_5, joint_3, joint_6, gripper_width_m]`
+>
+> joint 순서는 `/dsr01/joint_states` 발행 순서와 동일.
+
+---
+
+### 에피소드 검증
+
+```bash
+# 관절값 통계 출력
+python3 tools/inspect_episode.py ~/lerobot_datasets/<dataset_name>/data/chunk-000/episode_000000.parquet
+
+# 관절 궤적 PNG 저장
+python3 tools/inspect_episode.py ~/lerobot_datasets/<dataset_name>/data/chunk-000/episode_000000.parquet --plot
+```
 
 ---
 
@@ -307,7 +325,8 @@ world
 ```
 M0609_RG2_Integration/
 ├── tools/
-│   └── rosbag_to_lerobot.py            # rosbag → LeRobot v3.0 변환 스크립트
+│   ├── rosbag_to_lerobot.py            # rosbag → LeRobot v2.1 변환 스크립트
+│   └── inspect_episode.py              # parquet 에피소드 검증 (관절값 통계 + --plot)
 └── src/
     ├── m0609_rg2_bringup/              # 커스텀 브링업 패키지
     │   ├── launch/

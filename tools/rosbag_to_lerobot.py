@@ -56,9 +56,21 @@ except ImportError as e:
 # Canonical joint order for observation.state (verified from /dsr01/joint_states)
 JOINT_ORDER = ["joint_1", "joint_2", "joint_4", "joint_5", "joint_3", "joint_6"]
 
-TOPIC_GRIPPER = "/camera_gripper/camera_gripper/color/image_raw"
-TOPIC_GLOBAL  = "/camera_global/camera_global/color/image_raw"
-TOPIC_JOINTS  = "/dsr01/joint_states"
+TOPIC_GRIPPER       = "/camera_gripper/camera_gripper/color/image_raw"
+TOPIC_GLOBAL        = "/camera_global/camera_global/color/image_raw"
+TOPIC_JOINTS        = "/dsr01/joint_states"
+TOPIC_GRIPPER_STATE = "/joint_states"   # OnRobot RG2: publishes finger_joint angle
+
+# RG2 kinematic constants for finger_joint → width conversion
+_RG2_L1, _RG2_L3     = 0.108505, 0.055
+_RG2_THETA1, _RG2_THETA3, _RG2_DY = 1.41371, 0.76794, -0.0144
+
+
+def gripper_angle_to_width(angle: float) -> float:
+    """finger_joint angle (rad) → gripper opening width (m)."""
+    import math
+    return (math.cos(angle + _RG2_THETA3) * _RG2_L3
+            + _RG2_DY + _RG2_L1 * math.cos(_RG2_THETA1)) * 2
 
 # ── Rosbag Reader ─────────────────────────────────────────────────────────────
 
@@ -83,7 +95,7 @@ def read_bag(bag_path: Path):
         topic_types[meta.name] = meta.type
 
     # Filter to only the topics we care about
-    wanted = {TOPIC_GRIPPER, TOPIC_GLOBAL, TOPIC_JOINTS}
+    wanted = {TOPIC_GRIPPER, TOPIC_GLOBAL, TOPIC_JOINTS, TOPIC_GRIPPER_STATE}
     msg_types = {}
     for topic, type_str in topic_types.items():
         if topic in wanted:
@@ -106,34 +118,45 @@ def read_bag(bag_path: Path):
 def sync_frames(data: dict, slop_ns: int = 20_000_000) -> list[dict]:
     """
     Align frames using camera_gripper timestamps as reference.
-    For each gripper frame, find nearest global frame and joint state within slop.
-    Returns list of dicts with keys: ts_ns, img_gripper, img_global, joints
+    For each gripper frame, find nearest global frame, joint state, and (if present)
+    gripper state within slop.
+    Returns list of dicts with keys: ts_ns, img_gripper, img_global, joints,
+    gripper_js (None if topic not in bag).
     """
-    gripper_msgs  = data[TOPIC_GRIPPER]   # list of (ts_ns, img_msg)
-    global_msgs   = data[TOPIC_GLOBAL]    # list of (ts_ns, img_msg)
-    joint_msgs    = data[TOPIC_JOINTS]    # list of (ts_ns, js_msg)
+    gripper_msgs      = data[TOPIC_GRIPPER]        # list of (ts_ns, img_msg)
+    global_msgs       = data[TOPIC_GLOBAL]         # list of (ts_ns, img_msg)
+    joint_msgs        = data[TOPIC_JOINTS]         # list of (ts_ns, js_msg)
+    gripper_state_msgs = data.get(TOPIC_GRIPPER_STATE, [])
 
-    # Build numpy timestamp arrays for fast nearest-neighbour lookup
     global_ts  = np.array([t for t, _ in global_msgs],  dtype=np.int64)
     joint_ts   = np.array([t for t, _ in joint_msgs],   dtype=np.int64)
+    gripper_state_ts = (
+        np.array([t for t, _ in gripper_state_msgs], dtype=np.int64)
+        if gripper_state_msgs else None
+    )
 
     synced = []
     for ref_ts, gripper_img in gripper_msgs:
-        # Nearest global frame
         gi = int(np.argmin(np.abs(global_ts - ref_ts)))
         if abs(global_ts[gi] - ref_ts) > slop_ns:
-            continue  # no match within slop
+            continue
 
-        # Nearest joint state
         ji = int(np.argmin(np.abs(joint_ts - ref_ts)))
         if abs(joint_ts[ji] - ref_ts) > slop_ns:
             continue
 
+        gripper_js = None
+        if gripper_state_ts is not None:
+            gsi = int(np.argmin(np.abs(gripper_state_ts - ref_ts)))
+            if abs(gripper_state_ts[gsi] - ref_ts) <= slop_ns:
+                gripper_js = gripper_state_msgs[gsi][1]
+
         synced.append({
             "ts_ns":       ref_ts,
-            "img_gripper": gripper_img,           # from TOPIC_GRIPPER (wrist mount)
-            "img_global":  global_msgs[gi][1],    # from TOPIC_GLOBAL  (fixed view)
+            "img_gripper": gripper_img,
+            "img_global":  global_msgs[gi][1],
             "joints":      joint_msgs[ji][1],
+            "gripper_js":  gripper_js,
         })
 
     return synced
@@ -166,12 +189,21 @@ def img_msg_to_bgr(msg, size: int) -> np.ndarray:
 # ── Joint State Extraction ────────────────────────────────────────────────────
 
 def extract_joints(js_msg) -> list[float]:
-    """
-    Extract joint positions in JOINT_ORDER from a JointState message.
-    Returns list of 6 floats.
-    """
+    """Extract arm joint positions in JOINT_ORDER. Returns 6 floats."""
     name_to_pos = dict(zip(js_msg.name, js_msg.position))
     return [name_to_pos.get(j, 0.0) for j in JOINT_ORDER]
+
+
+def extract_gripper_width(js_msg) -> float | None:
+    """
+    Extract gripper opening width (m) from an OnRobot JointState message.
+    Returns None if finger_joint is not present.
+    """
+    name_to_pos = dict(zip(js_msg.name, js_msg.position))
+    angle = name_to_pos.get("finger_joint")
+    if angle is None:
+        return None
+    return gripper_angle_to_width(angle)
 
 
 # ── MP4 Writer ────────────────────────────────────────────────────────────────
@@ -213,11 +245,20 @@ def write_mp4(frames_bgr: list[np.ndarray], output_path: Path, fps: int = 30):
 # ── Parquet Writer ────────────────────────────────────────────────────────────
 
 def write_parquet(rows: list[dict], output_path: Path):
-    """Write episode rows to Parquet (LeRobot v3.0 column schema)."""
+    """Write episode rows to Parquet (LeRobot v2.1 column schema)."""
     output_path.parent.mkdir(parents=True, exist_ok=True)
     df = pd.DataFrame(rows)
     table = pa.Table.from_pandas(df, preserve_index=False)
     pq.write_table(table, str(output_path))
+
+
+def _next_global_index(output_dir: Path) -> int:
+    """Return the next global frame index by scanning existing parquet files."""
+    existing = sorted((output_dir / "data").glob("chunk-*/*.parquet"))
+    if not existing:
+        return 0
+    last_table = pq.read_table(str(existing[-1]), columns=["index"])
+    return int(last_table["index"].to_pylist()[-1]) + 1
 
 
 # ── Meta Writers ─────────────────────────────────────────────────────────────
@@ -230,8 +271,12 @@ def write_meta(output_dir: Path, all_rows: list[dict], task_name: str, fps: int,
     n_frames   = len(all_rows)
 
     # ── info.json ──────────────────────────────────────────────────────────
+    state_dim   = len(all_rows[0]["observation.state"]) if all_rows else 6
+    has_gripper = state_dim == 7
+    state_names = JOINT_ORDER + (["gripper_width_m"] if has_gripper else [])
+
     info = {
-        "codebase_version": "v3.0",
+        "codebase_version": "v2.1",
         "robot_type":        "doosan_m0609",
         "fps":               fps,
         "splits":            {"train": f"0:{n_episodes}"},
@@ -240,13 +285,13 @@ def write_meta(output_dir: Path, all_rows: list[dict], task_name: str, fps: int,
         "features": {
             "observation.state": {
                 "dtype":  "float32",
-                "shape":  [6],
-                "names":  JOINT_ORDER,
+                "shape":  [state_dim],
+                "names":  state_names,
             },
             "action": {
                 "dtype": "float32",
-                "shape": [6],
-                "names": JOINT_ORDER,
+                "shape": [state_dim],
+                "names": state_names,
             },
             "observation.images.camera_gripper": {
                 "dtype":   "video",
@@ -270,10 +315,11 @@ def write_meta(output_dir: Path, all_rows: list[dict], task_name: str, fps: int,
                     "video.is_depth_map":   False,
                 },
             },
-            "frame_index":   {"dtype": "int64",  "shape": [1]},
-            "timestamp":     {"dtype": "float32", "shape": [1]},
-            "episode_index": {"dtype": "int64",   "shape": [1]},
-            "task_index":    {"dtype": "int64",   "shape": [1]},
+            "frame_index":   {"dtype": "int64",   "shape": [1], "names": None},
+            "index":         {"dtype": "int64",   "shape": [1], "names": None},
+            "timestamp":     {"dtype": "float32", "shape": [1], "names": None},
+            "episode_index": {"dtype": "int64",   "shape": [1], "names": None},
+            "task_index":    {"dtype": "int64",   "shape": [1], "names": None},
         },
         "total_episodes": n_episodes,
         "total_frames":   n_frames,
@@ -365,23 +411,47 @@ def convert(
     write_mp4(frames_global,  vid_dir / f"observation.images.camera_global_{ep_str}.mp4",  fps)
     print(f"      videos written to {vid_dir}")
 
+    # Detect gripper width availability from first synced frame
+    has_gripper = any(sf["gripper_js"] is not None for sf in synced)
+    if has_gripper:
+        print("      gripper width detected — observation.state will be 7D (6 joints + width)")
+    else:
+        print("      no gripper state topic — observation.state is 6D")
+
+    # Global frame index: continues from last existing parquet (multi-episode append)
+    global_index_start = _next_global_index(output_dir)
+
     print("[4/5] Building Parquet rows")
     rows = []
     for fi, sf in enumerate(synced):
-        state  = extract_joints(sf["joints"])
-        # Action = next frame's state (teleoperation target); last frame repeats state
+        arm_state = extract_joints(sf["joints"])
+
+        if has_gripper:
+            gw = extract_gripper_width(sf["gripper_js"]) if sf["gripper_js"] else 0.0
+            state = arm_state + [gw if gw is not None else 0.0]
+        else:
+            state = arm_state
+
+        # Action = next frame's state (teleoperation target); last frame repeats
         if fi + 1 < n_synced:
-            action = extract_joints(synced[fi + 1]["joints"])
+            next_sf = synced[fi + 1]
+            next_arm = extract_joints(next_sf["joints"])
+            if has_gripper:
+                ngw = extract_gripper_width(next_sf["gripper_js"]) if next_sf["gripper_js"] else 0.0
+                action = next_arm + [ngw if ngw is not None else 0.0]
+            else:
+                action = next_arm
         else:
             action = state
 
         rows.append({
-            "frame_index":              fi,
-            "timestamp":                float(sf["ts_ns"] - t0_ns) / 1e9,
-            "episode_index":            episode_index,
-            "task_index":               0,
-            "observation.state":        [float(x) for x in state],
-            "action":                   [float(x) for x in action],
+            "frame_index":       fi,
+            "index":             global_index_start + fi,
+            "timestamp":         float(sf["ts_ns"] - t0_ns) / 1e9,
+            "episode_index":     episode_index,
+            "task_index":        0,
+            "observation.state": [float(x) for x in state],
+            "action":            [float(x) for x in action],
         })
 
     parquet_path = output_dir / "data" / chunk / f"{ep_str}.parquet"
