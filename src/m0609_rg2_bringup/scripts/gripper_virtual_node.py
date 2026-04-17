@@ -83,11 +83,11 @@ class GripperVirtualNode(Node):
 
 
 def main(args=None):
+    rclpy.init(args=args)
+    node = GripperVirtualNode()
+    executor = MultiThreadedExecutor()
+    executor.add_node(node)
     try:
-        rclpy.init(args=args)
-        node = GripperVirtualNode()
-        executor = MultiThreadedExecutor()
-        executor.add_node(node)
         executor.spin()
     except (KeyboardInterrupt, ExternalShutdownException):
         pass
