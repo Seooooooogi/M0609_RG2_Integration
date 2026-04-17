@@ -131,8 +131,8 @@ def sync_frames(data: dict, slop_ns: int = 20_000_000) -> list[dict]:
 
         synced.append({
             "ts_ns":       ref_ts,
-            "img_gripper": global_msgs[gi][1],
-            "img_global":  gripper_img,        # note: gripper cam = wrist mount
+            "img_gripper": gripper_img,           # from TOPIC_GRIPPER (wrist mount)
+            "img_global":  global_msgs[gi][1],    # from TOPIC_GLOBAL  (fixed view)
             "joints":      joint_msgs[ji][1],
         })
 
@@ -177,32 +177,37 @@ def extract_joints(js_msg) -> list[float]:
 # ── MP4 Writer ────────────────────────────────────────────────────────────────
 
 def write_mp4(frames_bgr: list[np.ndarray], output_path: Path, fps: int = 30):
-    """Write list of BGR frames to MP4 using H.264."""
+    """
+    Write list of BGR frames to H.264 MP4.
+    Uses imageio-ffmpeg (bundled binary) — no system ffmpeg required.
+    Falls back to OpenCV mp4v if imageio is unavailable.
+    """
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    h, w = frames_bgr[0].shape[:2]
-    fourcc = cv2.VideoWriter_fourcc(*"mp4v")
-    writer = cv2.VideoWriter(str(output_path), fourcc, fps, (w, h))
-    for frame in frames_bgr:
-        writer.write(frame)
-    writer.release()
 
-    # Re-encode with ffmpeg for better H.264 compatibility (optional)
-    tmp = output_path.with_suffix(".tmp.mp4")
-    output_path.rename(tmp)
     try:
-        result = subprocess.run(
-            [
-                "ffmpeg", "-y", "-i", str(tmp),
-                "-c:v", "libx264", "-preset", "fast", "-crf", "18",
-                "-pix_fmt", "yuv420p",
-                str(output_path),
-            ],
-            capture_output=True,
+        import imageio
+        import imageio_ffmpeg  # noqa: F401 — ensures bundled binary is present
+
+        writer = imageio.get_writer(
+            str(output_path),
+            fps=fps,
+            codec="libx264",
+            quality=None,
+            output_params=["-crf", "18", "-preset", "fast"],
+            pixelformat="yuv420p",
         )
-        if result.returncode != 0:
-            tmp.rename(output_path)  # keep mp4v output
-    except FileNotFoundError:
-        tmp.rename(output_path)  # ffmpeg not installed — keep mp4v output
+        for frame_bgr in frames_bgr:
+            writer.append_data(cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB))
+        writer.close()
+
+    except ImportError:
+        # Fallback: OpenCV mp4v (may not play in all browsers/players)
+        h, w = frames_bgr[0].shape[:2]
+        fourcc = cv2.VideoWriter_fourcc(*"mp4v")
+        cv_writer = cv2.VideoWriter(str(output_path), fourcc, fps, (w, h))
+        for frame in frames_bgr:
+            cv_writer.write(frame)
+        cv_writer.release()
 
 
 # ── Parquet Writer ────────────────────────────────────────────────────────────
