@@ -242,7 +242,7 @@ python3 tools/rosbag_to_lerobot.py \
 ├── data/
 │   └── chunk-000/
 │       └── episode_000000.parquet   # frame_index, index, timestamp, episode_index, task_index,
-│                                    # observation.state (6D 또는 7D), action
+│                                    # observation.state, action
 ├── videos/
 │   └── chunk-000/
 │       ├── observation.images.camera_gripper_episode_000000.mp4   # 손목 카메라 224×224 H.264
@@ -254,11 +254,9 @@ python3 tools/rosbag_to_lerobot.py \
     └── episodes.jsonl # 에피소드 목록 (길이 포함)
 ```
 
-> **`observation.state` / `action` 차원:**
-> - 그리퍼 상태 토픽 없이 녹화 → **6D** `[joint_1, joint_2, joint_4, joint_5, joint_3, joint_6]`
-> - `/joint_states` 포함 녹화 → **7D** `[joint_1, joint_2, joint_4, joint_5, joint_3, joint_6, gripper_width_m]`
->
-> joint 순서는 `/dsr01/joint_states` 발행 순서와 동일.
+> `observation.state` / `action` joint 순서:  
+> `[joint_1, joint_2, joint_4, joint_5, joint_3, joint_6]`  
+> `/dsr01/joint_states` 발행 순서와 동일.
 
 ---
 
