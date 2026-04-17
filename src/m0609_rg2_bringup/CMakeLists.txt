@@ -13,7 +13,9 @@ install(
 )
 
 install(
-  PROGRAMS scripts/gripper_joint_state_publisher.py
+  PROGRAMS
+    scripts/gripper_joint_state_publisher.py
+    scripts/gripper_virtual_node.py
   DESTINATION lib/${PROJECT_NAME}
 )
 
