@@ -131,7 +131,8 @@ def generate_launch_description():
     )
 
     # ── joint_state_publisher (virtual/real 공통) ─────────────────────
-    # virtual: /gripper_joint_states 없음 → gripper joint 0으로 채워짐
+    # dsr01/joint_states와 /gripper/joint_states 통합 토픽
+    # virtual 환경에서는 /gripper_joint_states 없음(DRCF 문제) → gripper joint 0으로 채워짐
     joint_state_publisher_node = Node(
         package='joint_state_publisher',
         executable='joint_state_publisher',
