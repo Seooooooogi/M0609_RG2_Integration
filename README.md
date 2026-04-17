@@ -156,6 +156,106 @@ virtual 모드에서 그리퍼는 `gripper_virtual_node`(bringup에 포함)가 `
 
 ---
 
+## VLA 데이터 수집
+
+### 준비
+
+Python 패키지 설치 (최초 1회):
+
+```bash
+pip install pandas pyarrow imageio imageio-ffmpeg "numpy<2"
+```
+
+> `numpy<2` 제약은 ROS2 Humble의 cv_bridge / OpenCV가 NumPy 1.x로 컴파일되어 있기 때문이다.
+
+---
+
+### 1단계 — rosbag 녹화
+
+두 대의 RealSense와 관절 상태를 동시에 녹화한다.
+
+```bash
+# 브링업 (real 모드, 별도 터미널)
+ros2 launch m0609_rg2_bringup bringup_dual_camera.launch.py \
+    mode:=real host:=192.168.1.100
+
+# 녹화 시작
+ros2 bag record \
+    /camera_gripper/camera_gripper/color/image_raw \
+    /camera_global/camera_global/color/image_raw \
+    /dsr01/joint_states \
+    -o ~/rosbag_recordings/<episode_name>
+
+# 녹화 중단: Ctrl+C
+```
+
+| 카메라 네임스페이스 | 위치 |
+|---|---|
+| `camera_gripper` | 손목 마운트 (wrist) |
+| `camera_global` | 고정 시점 (global) |
+
+---
+
+### 2단계 — LeRobot v3.0 포맷 변환
+
+```bash
+source /opt/ros/humble/setup.bash
+
+python3 tools/rosbag_to_lerobot.py \
+    --bag  ~/rosbag_recordings/<episode_name> \
+    --output ~/lerobot_datasets/<dataset_name> \
+    --task "pick up the object" \
+    --episode-index 0
+```
+
+에피소드를 추가할 때는 `--episode-index`를 1씩 늘려 같은 `--output` 경로를 재사용한다:
+
+```bash
+python3 tools/rosbag_to_lerobot.py \
+    --bag  ~/rosbag_recordings/<episode_name_2> \
+    --output ~/lerobot_datasets/<dataset_name> \
+    --task "pick up the object" \
+    --episode-index 1
+```
+
+**주요 옵션**
+
+| 옵션 | 기본값 | 설명 |
+|---|---|---|
+| `--bag` | — | rosbag 디렉토리 경로 |
+| `--output` | — | 데이터셋 출력 경로 |
+| `--task` | `"pick up the object"` | 태스크 설명 문자열 |
+| `--episode-index` | `0` | 에피소드 인덱스 |
+| `--slop` | `0.02` | 카메라↔관절 동기화 허용 오차 (초) |
+| `--img-size` | `224` | 출력 이미지 크기 (정사각형) |
+| `--fps` | `30` | 출력 비디오 FPS |
+
+---
+
+### 출력 구조 (LeRobot v3.0)
+
+```
+<dataset_name>/
+├── data/
+│   └── chunk-000/
+│       └── episode_000000.parquet   # frame_index, timestamp, observation.state (6D), action
+├── videos/
+│   └── chunk-000/
+│       ├── observation.images.camera_gripper_episode_000000.mp4   # 손목 카메라 224×224 H.264
+│       └── observation.images.camera_global_episode_000000.mp4    # 고정 카메라 224×224 H.264
+└── meta/
+    ├── info.json      # 데이터셋 스펙 (fps, features, robot_type 등)
+    ├── stats.json     # observation.state / action 통계
+    ├── tasks.jsonl    # 태스크 목록
+    └── episodes.jsonl # 에피소드 목록 (길이 포함)
+```
+
+> `observation.state` / `action` joint 순서:  
+> `[joint_1, joint_2, joint_4, joint_5, joint_3, joint_6]`  
+> `/dsr01/joint_states` 발행 순서와 동일.
+
+---
+
 ## TF 구조
 
 ### bringup.launch.py (그리퍼만)
