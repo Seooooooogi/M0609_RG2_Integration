@@ -144,11 +144,16 @@ def generate_launch_description():
     )
 
     # ── joint_state_publisher (virtual/real 공통) ─────────────────────
+    # rate=100 — /dsr01/joint_states 100Hz에 맞춤.
+    # 기본값(10Hz)에서는 TF_OLD_DATA warning burst 발생.
     joint_state_publisher_node = Node(
         package='joint_state_publisher',
         executable='joint_state_publisher',
         name='joint_state_publisher',
-        parameters=[{'source_list': ['/dsr01/joint_states', '/gripper_joint_states']}],
+        parameters=[{
+            'source_list': ['/dsr01/joint_states', '/gripper_joint_states'],
+            'rate':        100.0,
+        }],
     )
 
     # ── robot_state_publisher ─────────────────────────────────────────

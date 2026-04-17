@@ -151,7 +151,10 @@ def generate_launch_description():
         package='joint_state_publisher',
         executable='joint_state_publisher',
         name='joint_state_publisher',
-        parameters=[{'source_list': ['/dsr01/joint_states', '/gripper_joint_states']}],
+        parameters=[{
+            'source_list': ['/dsr01/joint_states', '/gripper_joint_states'],
+            'rate':        100.0,
+        }],
     )
 
     # ── robot_state_publisher ─────────────────────────────────────────
