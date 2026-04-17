@@ -26,3 +26,6 @@ docs/harness-tests.md
 # 외부 패키지 (별도 클론 필요)
 src/doosan-robot2/
 src/onrobot-ros2/
+
+# 전달용 예제 패키지 (대외비)
+src/cobot1/
