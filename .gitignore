@@ -7,7 +7,6 @@ CLAUDE.md
 *.pyc
 __pycache__/
 memory/
-docs/
 tasks/
 
 # Dataset and Models
