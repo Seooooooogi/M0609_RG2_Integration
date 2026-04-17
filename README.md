@@ -104,6 +104,18 @@ ros2 launch m0609_rg2_bringup bringup_camera.launch.py mode:=real host:=192.168.
 ros2 launch m0609_rg2_moveit moveit.launch.py
 ```
 
+### virtual 모드에서의 그리퍼 동작 차이
+
+virtual 모드에서 그리퍼는 `gripper_virtual_node`(bringup에 포함)가 `/onrobot/sendCommand` 서비스를 통해 RViz 시각화를 담당합니다. cobot1 수업 범위에서 OnRobot RG2 Modbus 제어를 다루지 않기 때문에 real 모드와 다르게 동작합니다.
+
+| 항목 | real 모드 | virtual 모드 |
+|------|-----------|-------------|
+| 그리퍼 제어 | OnRobot 드라이버 (Modbus TCP) | Modbus 제어 미포함 (수업 범위 외) |
+| 완료 신호 | 디지털 입력 핀 감지 | `/onrobot/sendCommand` 서비스 응답 (애니메이션 완료 시 반환) |
+| RViz 그리퍼 상태 | `/gripper_joint_states` (OnRobot 드라이버 발행) | `/gripper_joint_states` (gripper_virtual_node 발행, bringup 포함) |
+| 파지력 / 접촉 | 실제 물리 동작 | 시뮬레이션 없음 |
+| Tool/TCP 프리셋 | DRCF에 등록된 값 사용 | 설정 스킵 (에뮬레이터 미등록) |
+
 ---
 
 ## RealSense 카메라
