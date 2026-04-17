@@ -263,35 +263,42 @@ python3 tools/rosbag_to_lerobot.py \
 ```
 world
 └── base_link
-    └── link1 → link2 → link3 → link4 → link5 → link6
-                                                    └── tool0
-                                                        └── rg2_base_link
-                                                            ├── rg2_left_outer_knuckle
-                                                            │   ├── rg2_left_inner_knuckle
-                                                            │   └── rg2_left_inner_finger
-                                                            └── rg2_right_outer_knuckle
-                                                                ├── rg2_right_inner_knuckle
-                                                                └── rg2_right_inner_finger
+    └── link_1 → link_2 → link_3 → link_4 → link_5 → link_6
+                                                          └── tool0
+                                                              └── rg2_base_link
+                                                                  ├── rg2_left_outer_knuckle
+                                                                  │   └── rg2_left_inner_finger
+                                                                  ├── rg2_right_outer_knuckle
+                                                                  │   └── rg2_right_inner_finger
+                                                                  ├── rg2_left_inner_knuckle   (mimic)
+                                                                  └── rg2_right_inner_knuckle  (mimic)
 ```
 
-### bringup_camera.launch.py (카메라 포함)
+### bringup_camera.launch.py / bringup_dual_camera.launch.py (카메라 포함)
 
 ```
 world
 └── base_link
-    └── link1 → ... → tool0
-                       ├── rg2_base_link          (그리퍼, 위와 동일)
-                       └── bracket_link           (마운트 브라켓)
-                           └── camera_link
-                               ├── camera_color_frame / camera_color_optical_frame
-                               ├── camera_depth_frame / camera_depth_optical_frame
-                               ├── camera_infra1_frame / camera_infra1_optical_frame
-                               └── camera_infra2_frame / camera_infra2_optical_frame
+    └── link_1 → ... → tool0
+                          ├── rg2_base_link                    (그리퍼, 위와 동일)
+                          └── bracket_link                     (마운트 브라켓)
+                              └── camera_bottom_screw_frame
+                                  └── camera_link
+                                      ├── camera_color_frame
+                                      │   └── camera_color_optical_frame
+                                      ├── camera_depth_frame
+                                      │   └── camera_depth_optical_frame
+                                      ├── camera_infra1_frame
+                                      │   └── camera_infra1_optical_frame
+                                      └── camera_infra2_frame
+                                          └── camera_infra2_optical_frame
 ```
 
-> `world → base_link` 는 `static_transform_publisher` (identity transform)  
-> `tool0 → rg2_base_link` 는 `joint0` (fixed)  
-> `tool0 → bracket_link` 는 `tool0_to_bracket` (fixed)
+> `world → base_link` — `static_transform_publisher` (identity)  
+> `tool0 → rg2_base_link` — `joint0` (fixed)  
+> `tool0 → bracket_link` — `tool0_to_bracket` (fixed)  
+> `rg2_left/right_inner_knuckle` — `mimic` joint, `rg2_finger_joint` 기준으로 연동  
+> `bringup_dual_camera`의 두 번째 카메라(camera_global)는 URDF에 등록되지 않은 외부 고정 카메라
 
 ---
 
@@ -299,25 +306,28 @@ world
 
 ```
 M0609_RG2_Integration/
+├── tools/
+│   └── rosbag_to_lerobot.py            # rosbag → LeRobot v3.0 변환 스크립트
 └── src/
-    ├── m0609_rg2_bringup/          # 커스텀 브링업 패키지
+    ├── m0609_rg2_bringup/              # 커스텀 브링업 패키지
     │   ├── launch/
-    │   │   ├── bringup.launch.py           # 로봇 + 그리퍼
-    │   │   └── bringup_camera.launch.py    # 로봇 + 그리퍼 + RealSense
+    │   │   ├── bringup.launch.py               # 로봇 + 그리퍼
+    │   │   ├── bringup_camera.launch.py        # 로봇 + 그리퍼 + RealSense 1대
+    │   │   └── bringup_dual_camera.launch.py   # 로봇 + 그리퍼 + RealSense 2대 (VLA 데이터 수집)
     │   ├── meshes/
     │   │   └── mount_bracket.stl
     │   ├── rviz/
-    │   │   ├── default.rviz
-    │   │   └── moveit.rviz
+    │   │   └── default.rviz
     │   ├── scripts/
-    │   │   └── gripper_joint_state_publisher.py   # onrobot_joint_states → gripper_joint_states
+    │   │   ├── gripper_joint_state_publisher.py   # onrobot_joint_states → gripper_joint_states (real)
+    │   │   └── gripper_virtual_node.py            # /onrobot/sendCommand 서비스 + RViz 애니메이션 (virtual)
     │   └── urdf/
-    │       ├── m0609_with_rg2.urdf.xacro           # 팔 + 그리퍼 통합 URDF
-    │       ├── m0609_with_rg2_camera.urdf.xacro    # 팔 + 그리퍼 + 카메라 통합 URDF
-    │       ├── onrobot_rg2.xacro                   # RG2 베이스 링크 정의
+    │       ├── m0609_with_rg2.urdf.xacro           # 팔 + 그리퍼
+    │       ├── m0609_with_rg2_camera.urdf.xacro    # 팔 + 그리퍼 + 손목 카메라
+    │       ├── onrobot_rg2.xacro                   # RG2 베이스 링크 (has_bracket 파라미터 포함)
     │       ├── onrobot_rg2_model_macro.xacro        # RG2 링크/조인트 매크로
-    │       └── realsense_bracket.urdf.xacro         # 브라켓 + D435 마운트
-    ├── m0609_rg2_moveit/           # 커스텀 MoveIt2 패키지
+    │       └── realsense_bracket.urdf.xacro         # 브라켓 + D435 마운트 (tool0 기준)
+    ├── m0609_rg2_moveit/               # 커스텀 MoveIt2 패키지
     │   ├── config/
     │   │   ├── joint_limits.yaml
     │   │   ├── kinematics.yaml
@@ -325,7 +335,8 @@ M0609_RG2_Integration/
     │   │   ├── moveit_controllers.yaml
     │   │   └── ompl_planning.yaml
     │   └── launch/
-    │       └── moveit.launch.py
-    ├── doosan-robot2/              # 외부 패키지 — read-only
-    └── onrobot-ros2/               # 외부 패키지 — read-only
+    │       ├── moveit.launch.py
+    │       └── moveit.rviz
+    ├── doosan-robot2/                  # 외부 패키지 — read-only
+    └── onrobot-ros2/                   # 외부 패키지 — read-only
 ```
