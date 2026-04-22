@@ -8,7 +8,6 @@ Doosan M0609 협동로봇 + OnRobot RG2 그리퍼 통합 ROS2 워크스페이스
 
 - Ubuntu 22.04
 - ROS2 Humble
-- MoveIt2
 - Intel RealSense SDK 2.0
 
 ```bash
@@ -18,17 +17,16 @@ sudo apt update
 sudo apt install libpoco-dev
 
 # ROS2 빌드 및 실행 관련
-sudo apt install ros-humble-moveit
-sudo apt install ros-humble-joint-state-publisher-gui
-sudo apt install ros-humble-xacro
-sudo apt install ros-humble-realsense2-camera
-sudo apt install ros-humble-realsense2-description
-sudo apt install ros-humble-gazebo-ros-pkgs
+sudo apt install ros-humble-joint-state-publisher-gui \
+    ros-humble-xacro \
+    ros-humble-realsense2-camera \
+    ros-humble-realsense2-description \
+    ros-humble-gazebo-ros-pkgs
 
 # 제어 및 하드웨어 인터페이스
-sudo apt install ros-humble-hardware-interface
-sudo apt install ros-humble-ros2-control
-sudo apt install ros-humble-ros2-controllers
+sudo apt install ros-humble-hardware-interface \
+    ros-humble-ros2-control \
+    ros-humble-ros2-controllers
 
 # OnRobot 그리퍼 드라이버 의존성
 pip3 install pymodbus==3.3.2
@@ -51,22 +49,22 @@ git clone https://github.com/ABC-iRobotics/onrobot-ros2
 
 ---
 
-## 사전 조건 (Real 모드)
+## 초기 설정 (최초 1회)
 
-> - 로봇 IP: `192.168.1.100`
-> - 그리퍼 IP: `192.168.1.1` (OnRobot 컴퓨트박스, 고정)
-> - UDP 포트 권한 설정 (최초 1회):
->   ```bash
->   sudo sysctl -w net.ipv4.ip_unprivileged_port_start=0
->   # 재부팅 후에도 유지하려면:
->   echo 'net.ipv4.ip_unprivileged_port_start=0' | sudo tee /etc/sysctl.d/99-ros2-doosan.conf
->   ```
+### Real 모드 사전 조건
 
----
+- 로봇 IP: `192.168.1.100`
+- 그리퍼 IP: `192.168.1.1` (OnRobot 컴퓨트박스, 고정)
+- UDP 포트 권한 설정:
+  ```bash
+  sudo sysctl -w net.ipv4.ip_unprivileged_port_start=0
+  # 재부팅 후에도 유지:
+  echo 'net.ipv4.ip_unprivileged_port_start=0' | sudo tee /etc/sysctl.d/99-ros2-doosan.conf
+  ```
 
-## RealSense 초기 설정 (최초 1회)
+### RealSense udev rules
 
-udev rules가 없으면 스트리밍 중 `xioctl(VIDIOC_QBUF) failed — No such device` 에러가 발생한다.
+udev rules 미설치 시 스트리밍 중 `xioctl(VIDIOC_QBUF) failed — No such device` 에러 발생.
 
 ```bash
 sudo curl https://raw.githubusercontent.com/IntelRealSense/librealsense/master/config/99-realsense-libusb.rules \
@@ -82,13 +80,15 @@ sudo udevadm control --reload-rules && sudo udevadm trigger
 
 ```bash
 cd ~/M0609_RG2_Integration
-colcon build
+colcon build --symlink-install
 source install/setup.bash
 ```
 
 ---
 
 ## 실행
+
+환경 설정:
 
 ```bash
 source /opt/ros/humble/setup.bash
@@ -104,8 +104,6 @@ ros2 launch m0609_rg2_bringup bringup.launch.py
 # 브링업 (RealSense 카메라 포함)
 ros2 launch m0609_rg2_bringup bringup_camera.launch.py
 
-# MoveIt2
-ros2 launch m0609_rg2_moveit moveit.launch.py
 ```
 
 ### Real 모드 (실제 로봇)
@@ -117,39 +115,30 @@ ros2 launch m0609_rg2_bringup bringup.launch.py mode:=real host:=192.168.1.100
 # 브링업 (RealSense 카메라 포함)
 ros2 launch m0609_rg2_bringup bringup_camera.launch.py mode:=real host:=192.168.1.100
 
-# MoveIt2
-ros2 launch m0609_rg2_moveit moveit.launch.py
 ```
 
-### virtual 모드에서의 그리퍼 동작 차이
+### Virtual / Real 모드 그리퍼 동작 차이
 
-virtual 모드에서 그리퍼는 `gripper_virtual_node`(bringup에 포함)가 `/onrobot/sendCommand` 서비스를 통해 RViz 시각화를 담당합니다. cobot1 수업 범위에서 OnRobot RG2 Modbus 제어를 다루지 않기 때문에 real 모드와 다르게 동작합니다.
+virtual 모드에서 `gripper_virtual_node`(bringup에 포함)가 `/onrobot/sendCommand` 서비스로 RViz 시각화 담당. OnRobot RG2 Modbus 제어 미포함.
 
 | 항목 | real 모드 | virtual 모드 |
 |------|-----------|-------------|
-| 그리퍼 제어 | OnRobot 드라이버 (Modbus TCP) | Modbus 제어 미포함 (수업 범위 외) |
-| 완료 신호 | 디지털 입력 핀 감지 | `/onrobot/sendCommand` 서비스 응답 (애니메이션 완료 시 반환) |
-| RViz 그리퍼 상태 | `/gripper_joint_states` (OnRobot 드라이버 발행) | `/gripper_joint_states` (gripper_virtual_node 발행, bringup 포함) |
+| 그리퍼 제어 | OnRobot 드라이버 (Modbus TCP) | Modbus 미포함 |
+| 완료 신호 | 디지털 입력 핀 감지 | `/onrobot/sendCommand` 응답 (애니메이션 완료 시) |
+| RViz 그리퍼 상태 | `/gripper_joint_states` (OnRobot 드라이버) | `/gripper_joint_states` (gripper_virtual_node) |
 | 파지력 / 접촉 | 실제 물리 동작 | 시뮬레이션 없음 |
-| Tool/TCP 프리셋 | DRCF에 등록된 값 사용 | 설정 스킵 (에뮬레이터 미등록) |
+| Tool/TCP 프리셋 | DRCF 등록값 사용 | 설정 스킵 (에뮬레이터 미등록) |
 
----
-
-## RealSense 카메라
-
-### 주요 토픽
+### RealSense 주요 토픽
 
 | 토픽 | 설명 |
 |------|------|
 | `/camera/color/image_raw` | RGB 컬러 이미지 |
-| `/camera/aligned_depth_to_color/image_raw` | 컬러에 정렬된 뎁스 이미지 |
+| `/camera/aligned_depth_to_color/image_raw` | 컬러 정렬 뎁스 이미지 |
 | `/camera/depth/color/points` | RGB 포인트클라우드 |
 | `/camera/color/camera_info` | 컬러 카메라 내부 파라미터 |
 
-### RViz 설정
-
-`default.rviz`에 아래 display가 미리 구성되어 있음:
-
+`default.rviz` 사전 구성 display:
 - **Color Image** — `/camera/color/image_raw`
 - **Depth Image** — `/camera/aligned_depth_to_color/image_raw`
 - **PointCloud2** — `/camera/depth/color/points`
@@ -158,21 +147,17 @@ virtual 모드에서 그리퍼는 `gripper_virtual_node`(bringup에 포함)가 `
 
 ## VLA 데이터 수집
 
-### 준비
-
 Python 패키지 설치 (최초 1회):
 
 ```bash
 pip install pandas pyarrow imageio imageio-ffmpeg "numpy<2"
 ```
 
-> `numpy<2` 제약은 ROS2 Humble의 cv_bridge / OpenCV가 NumPy 1.x로 컴파일되어 있기 때문이다.
-
----
+> `numpy<2` 제약: ROS2 Humble의 cv_bridge / OpenCV가 NumPy 1.x로 컴파일됨.
 
 ### 1단계 — rosbag 녹화
 
-두 대의 RealSense와 관절 상태를 동시에 녹화한다.
+두 대의 RealSense + 관절 상태 동시 녹화.
 
 ```bash
 # 브링업 (real 모드, 별도 터미널)
@@ -195,11 +180,9 @@ ros2 bag record \
 | `camera_gripper` | 손목 마운트 (wrist) |
 | `camera_global` | 고정 시점 (global) |
 
----
-
 ### 2단계 — LeRobot v2.1 포맷 변환
 
-> openpi(Physical Intelligence)가 pin한 lerobot 커밋(`0cf86487`)의 `CODEBASE_VERSION = "v2.1"` 에 맞춘 포맷이다.
+openpi가 pin한 lerobot 커밋(`0cf86487`)의 `CODEBASE_VERSION = "v2.1"` 포맷 기준.
 
 ```bash
 source /opt/ros/humble/setup.bash
@@ -211,7 +194,7 @@ python3 tools/rosbag_to_lerobot.py \
     --episode-index 0
 ```
 
-에피소드를 추가할 때는 `--episode-index`를 1씩 늘려 같은 `--output` 경로를 재사용한다. 글로벌 `index` 컬럼은 기존 parquet 파일을 스캔해 자동으로 이어진다:
+에피소드 추가 시: `--episode-index`를 1씩 증가, 동일 `--output` 경로 재사용. 글로벌 `index` 컬럼은 기존 parquet 파일 스캔 후 자동 누적.
 
 ```bash
 python3 tools/rosbag_to_lerobot.py \
@@ -233,8 +216,6 @@ python3 tools/rosbag_to_lerobot.py \
 | `--img-size` | `224` | 출력 이미지 크기 (정사각형) |
 | `--fps` | `30` | 출력 비디오 FPS |
 
----
-
 ### 출력 구조 (LeRobot v2.1)
 
 ```
@@ -254,11 +235,7 @@ python3 tools/rosbag_to_lerobot.py \
     └── episodes.jsonl # 에피소드 목록 (길이 포함)
 ```
 
-> `observation.state` / `action` joint 순서:  
-> `[joint_1, joint_2, joint_4, joint_5, joint_3, joint_6]`  
-> `/dsr01/joint_states` 발행 순서와 동일.
-
----
+`observation.state` / `action` joint 순서: `[joint_1, joint_2, joint_4, joint_5, joint_3, joint_6]` — `/dsr01/joint_states` 발행 순서와 동일.
 
 ### 에피소드 검증
 
@@ -310,11 +287,11 @@ world
                                           └── camera_infra2_optical_frame
 ```
 
-> `world → base_link` — `static_transform_publisher` (identity)  
-> `tool0 → rg2_base_link` — `joint0` (fixed)  
-> `tool0 → bracket_link` — `tool0_to_bracket` (fixed)  
-> `rg2_left/right_inner_knuckle` — `mimic` joint, `rg2_finger_joint` 기준으로 연동  
-> `bringup_dual_camera`의 두 번째 카메라(camera_global)는 URDF에 등록되지 않은 외부 고정 카메라
+- `world → base_link`: `static_transform_publisher` (identity)
+- `tool0 → rg2_base_link`: `joint0` (fixed)
+- `tool0 → bracket_link`: `tool0_to_bracket` (fixed)
+- `rg2_left/right_inner_knuckle`: mimic joint, `rg2_finger_joint` 기준 연동
+- `bringup_dual_camera`의 `camera_global`: URDF 미등록 외부 고정 카메라
 
 ---
 
@@ -344,16 +321,7 @@ M0609_RG2_Integration/
     │       ├── onrobot_rg2.xacro                   # RG2 베이스 링크 (has_bracket 파라미터 포함)
     │       ├── onrobot_rg2_model_macro.xacro        # RG2 링크/조인트 매크로
     │       └── realsense_bracket.urdf.xacro         # 브라켓 + D435 마운트 (tool0 기준)
-    ├── m0609_rg2_moveit/               # 커스텀 MoveIt2 패키지
-    │   ├── config/
-    │   │   ├── joint_limits.yaml
-    │   │   ├── kinematics.yaml
-    │   │   ├── m0609_rg2.srdf
-    │   │   ├── moveit_controllers.yaml
-    │   │   └── ompl_planning.yaml
-    │   └── launch/
-    │       ├── moveit.launch.py
-    │       └── moveit.rviz
+    ├── m0609_rg2_moveit/               # MoveIt2 패키지 (deprecated — 현재 미사용)
     ├── doosan-robot2/                  # 외부 패키지 — read-only
     └── onrobot-ros2/                   # 외부 패키지 — read-only
 ```
