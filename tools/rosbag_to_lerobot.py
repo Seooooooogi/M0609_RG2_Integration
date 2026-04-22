@@ -58,8 +58,7 @@ JOINT_ORDER = ["joint_1", "joint_2", "joint_4", "joint_5", "joint_3", "joint_6"]
 
 TOPIC_GRIPPER       = "/camera_gripper/camera_gripper/color/image_raw"
 TOPIC_GLOBAL        = "/camera_global/camera_global/color/image_raw"
-TOPIC_JOINTS        = "/dsr01/joint_states"
-TOPIC_GRIPPER_STATE       = "/gripper_joint_states"  # OnRobot RG2: rg2_finger_joint angle
+TOPIC_JOINTS        = "/integrated_joint_states"      # merged: arm 6DOF + rg2_finger_joint
 GRIPPER_OPEN_THRESHOLD_MM = 50.0                      # width >= threshold → open (1.0), else closed (0.0)
 
 # RG2 kinematic constants for finger_joint → width conversion
@@ -96,7 +95,7 @@ def read_bag(bag_path: Path):
         topic_types[meta.name] = meta.type
 
     # Filter to only the topics we care about
-    wanted = {TOPIC_GRIPPER, TOPIC_GLOBAL, TOPIC_JOINTS, TOPIC_GRIPPER_STATE}
+    wanted = {TOPIC_GRIPPER, TOPIC_GLOBAL, TOPIC_JOINTS}
     msg_types = {}
     for topic, type_str in topic_types.items():
         if topic in wanted:
@@ -119,22 +118,16 @@ def read_bag(bag_path: Path):
 def sync_frames(data: dict, slop_ns: int = 20_000_000) -> list[dict]:
     """
     Align frames using camera_gripper timestamps as reference.
-    For each gripper frame, find nearest global frame, joint state, and (if present)
-    gripper state within slop.
-    Returns list of dicts with keys: ts_ns, img_gripper, img_global, joints,
-    gripper_js (None if topic not in bag).
+    For each gripper frame, find nearest global frame and joint state within slop.
+    /integrated_joint_states carries both arm joints and rg2_finger_joint.
+    Returns list of dicts with keys: ts_ns, img_gripper, img_global, joints.
     """
-    gripper_msgs      = data[TOPIC_GRIPPER]        # list of (ts_ns, img_msg)
-    global_msgs       = data[TOPIC_GLOBAL]         # list of (ts_ns, img_msg)
-    joint_msgs        = data[TOPIC_JOINTS]         # list of (ts_ns, js_msg)
-    gripper_state_msgs = data.get(TOPIC_GRIPPER_STATE, [])
+    gripper_msgs = data[TOPIC_GRIPPER]
+    global_msgs  = data[TOPIC_GLOBAL]
+    joint_msgs   = data[TOPIC_JOINTS]
 
-    global_ts  = np.array([t for t, _ in global_msgs],  dtype=np.int64)
-    joint_ts   = np.array([t for t, _ in joint_msgs],   dtype=np.int64)
-    gripper_state_ts = (
-        np.array([t for t, _ in gripper_state_msgs], dtype=np.int64)
-        if gripper_state_msgs else None
-    )
+    global_ts = np.array([t for t, _ in global_msgs], dtype=np.int64)
+    joint_ts  = np.array([t for t, _ in joint_msgs],  dtype=np.int64)
 
     synced = []
     for ref_ts, gripper_img in gripper_msgs:
@@ -146,19 +139,11 @@ def sync_frames(data: dict, slop_ns: int = 20_000_000) -> list[dict]:
         if abs(joint_ts[ji] - ref_ts) > slop_ns:
             continue
 
-        # forward-fill: use most recent gripper state at or before ref_ts
-        gripper_js = None
-        if gripper_state_ts is not None:
-            past = np.where(gripper_state_ts <= ref_ts)[0]
-            if len(past) > 0:
-                gripper_js = gripper_state_msgs[past[-1]][1]
-
         synced.append({
             "ts_ns":       ref_ts,
             "img_gripper": gripper_img,
             "img_global":  global_msgs[gi][1],
             "joints":      joint_msgs[ji][1],
-            "gripper_js":  gripper_js,
         })
 
     return synced
@@ -390,7 +375,7 @@ def convert(
     n_gripper = len(data[TOPIC_GRIPPER])
     n_global  = len(data[TOPIC_GLOBAL])
     n_joints  = len(data[TOPIC_JOINTS])
-    print(f"      gripper frames: {n_gripper}, global frames: {n_global}, joint states: {n_joints}")
+    print(f"      gripper frames: {n_gripper}, global frames: {n_global}, integrated_joint_states: {n_joints}")
 
     print(f"[2/5] Synchronising frames (slop={slop_s*1000:.0f}ms)")
     synced = sync_frames(data, slop_ns=int(slop_s * 1e9))
@@ -417,12 +402,13 @@ def convert(
     write_mp4(frames_global,  vid_dir / f"observation.images.camera_global_{ep_str}.mp4",  fps)
     print(f"      videos written to {vid_dir}")
 
-    # Detect gripper state availability from first synced frame
-    has_gripper = any(sf["gripper_js"] is not None for sf in synced)
+    # Detect gripper joint presence in first synced frame
+    first_js = synced[0]["joints"]
+    has_gripper = "rg2_finger_joint" in first_js.name
     if has_gripper:
-        print("      gripper state detected — observation.state will be 7D (6 joints + open/closed)")
+        print("      rg2_finger_joint found in /integrated_joint_states — observation.state 7D")
     else:
-        print("      no gripper state topic — observation.state is 6D")
+        print("      rg2_finger_joint NOT found — observation.state 6D (arm only)")
 
     # Global frame index: continues from last existing parquet (multi-episode append)
     global_index_start = _next_global_index(output_dir)
@@ -433,8 +419,7 @@ def convert(
         arm_state = extract_joints(sf["joints"])
 
         if has_gripper:
-            gs = extract_gripper_binary(sf["gripper_js"]) if sf["gripper_js"] else 1.0
-            state = arm_state + [gs]
+            state = arm_state + [extract_gripper_binary(sf["joints"])]
         else:
             state = arm_state
 
@@ -443,8 +428,7 @@ def convert(
             next_sf = synced[fi + 1]
             next_arm = extract_joints(next_sf["joints"])
             if has_gripper:
-                ngs = extract_gripper_binary(next_sf["gripper_js"]) if next_sf["gripper_js"] else 1.0
-                action = next_arm + [ngs]
+                action = next_arm + [extract_gripper_binary(next_sf["joints"])]
             else:
                 action = next_arm
         else:
