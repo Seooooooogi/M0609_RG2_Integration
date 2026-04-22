@@ -129,19 +129,18 @@ virtual 모드에서 `gripper_virtual_node`(bringup에 포함)가 `/onrobot/send
 | 파지력 / 접촉 | 실제 물리 동작 | 시뮬레이션 없음 |
 | Tool/TCP 프리셋 | DRCF 등록값 사용 | 설정 스킵 (에뮬레이터 미등록) |
 
-### RealSense 주요 토픽
+### RealSense 주요 토픽 (dual camera)
 
 | 토픽 | 설명 |
 |------|------|
-| `/camera/color/image_raw` | RGB 컬러 이미지 |
-| `/camera/aligned_depth_to_color/image_raw` | 컬러 정렬 뎁스 이미지 |
-| `/camera/depth/color/points` | RGB 포인트클라우드 |
-| `/camera/color/camera_info` | 컬러 카메라 내부 파라미터 |
+| `/camera_gripper/camera_gripper/color/image_raw` | 손목 카메라 RGB |
+| `/camera_gripper/camera_gripper/aligned_depth_to_color/image_raw` | 손목 카메라 뎁스 (컬러 정렬) |
+| `/camera_gripper/camera_gripper/color/camera_info` | 손목 카메라 내부 파라미터 |
+| `/camera_global/camera_global/color/image_raw` | 고정 카메라 RGB |
 
 `default.rviz` 사전 구성 display:
-- **Color Image** — `/camera/color/image_raw`
-- **Depth Image** — `/camera/aligned_depth_to_color/image_raw`
-- **PointCloud2** — `/camera/depth/color/points`
+- **Color Image** — `/camera_gripper/camera_gripper/color/image_raw`
+- **Depth Image** — `/camera_gripper/camera_gripper/aligned_depth_to_color/image_raw`
 
 ---
 
@@ -164,12 +163,13 @@ pip install pandas pyarrow imageio imageio-ffmpeg "numpy<2"
 ros2 launch m0609_rg2_bringup bringup_dual_camera.launch.py \
     mode:=real host:=192.168.1.100
 
-# 녹화 시작 (그리퍼 width 포함 시 /joint_states 추가)
+# 녹화 시작
 ros2 bag record \
     /camera_gripper/camera_gripper/color/image_raw \
     /camera_global/camera_global/color/image_raw \
     /dsr01/joint_states \
-    /joint_states \
+    /integrated_joint_states \
+    /gripper_joint_states \
     -o ~/rosbag_recordings/<episode_name>
 
 # 녹화 중단: Ctrl+C
@@ -235,7 +235,7 @@ python3 tools/rosbag_to_lerobot.py \
     └── episodes.jsonl # 에피소드 목록 (길이 포함)
 ```
 
-`observation.state` / `action` joint 순서: `[joint_1, joint_2, joint_4, joint_5, joint_3, joint_6]` — `/dsr01/joint_states` 발행 순서와 동일.
+`observation.state` / `action` 구성 (7D): `[joint_1, joint_2, joint_4, joint_5, joint_3, joint_6, gripper_open]` — 관절 6개는 `/dsr01/joint_states` 발행 순서, `gripper_open`은 binary (1.0=열림, 0.0=닫힘).
 
 ### 에피소드 검증
 
