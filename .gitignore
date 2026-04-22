@@ -4,6 +4,7 @@ log/
 .claude/
 AGENTS.md
 CLAUDE.md
+BRIEF.md
 *.pyc
 __pycache__/
 memory/
