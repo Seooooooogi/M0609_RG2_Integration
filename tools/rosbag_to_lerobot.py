@@ -30,7 +30,6 @@ Usage:
 """
 import argparse
 import json
-import math
 import os
 import struct
 import subprocess
@@ -60,17 +59,19 @@ JOINT_ORDER = ["joint_1", "joint_2", "joint_4", "joint_5", "joint_3", "joint_6"]
 TOPIC_GRIPPER       = "/camera_gripper/camera_gripper/color/image_raw"
 TOPIC_GLOBAL        = "/camera_global/camera_global/color/image_raw"
 TOPIC_JOINTS        = "/dsr01/joint_states"
-TOPIC_GRIPPER_STATE = "/joint_states"   # OnRobot RG2: publishes finger_joint angle
+TOPIC_GRIPPER_STATE       = "/gripper_joint_states"  # OnRobot RG2: rg2_finger_joint angle
+GRIPPER_OPEN_THRESHOLD_MM = 50.0                      # width >= threshold → open (1.0), else closed (0.0)
 
 # RG2 kinematic constants for finger_joint → width conversion
-_RG2_L1, _RG2_L3     = 0.108505, 0.055
-_RG2_THETA1, _RG2_THETA3, _RG2_DY = 1.41371, 0.76794, -0.0144
+import math
+_RG2_L1, _RG2_L3                      = 0.108505, 0.055
+_RG2_THETA1, _RG2_THETA3, _RG2_DY     = 1.41371, 0.76794, -0.0144
 
 
-def gripper_angle_to_width(angle: float) -> float:
-    """finger_joint angle (rad) → gripper opening width (m)."""
-    return (math.cos(angle + _RG2_THETA3) * _RG2_L3
-            + _RG2_DY + _RG2_L1 * math.cos(_RG2_THETA1)) * 2
+def _gripper_angle_to_width_mm(angle: float) -> float:
+    """rg2_finger_joint angle (rad) → gripper opening width (mm)."""
+    return ((math.cos(angle + _RG2_THETA3) * _RG2_L3
+             + _RG2_DY + _RG2_L1 * math.cos(_RG2_THETA1)) * 2) * 1000.0
 
 # ── Rosbag Reader ─────────────────────────────────────────────────────────────
 
@@ -145,11 +146,12 @@ def sync_frames(data: dict, slop_ns: int = 20_000_000) -> list[dict]:
         if abs(joint_ts[ji] - ref_ts) > slop_ns:
             continue
 
+        # forward-fill: use most recent gripper state at or before ref_ts
         gripper_js = None
         if gripper_state_ts is not None:
-            gsi = int(np.argmin(np.abs(gripper_state_ts - ref_ts)))
-            if abs(gripper_state_ts[gsi] - ref_ts) <= slop_ns:
-                gripper_js = gripper_state_msgs[gsi][1]
+            past = np.where(gripper_state_ts <= ref_ts)[0]
+            if len(past) > 0:
+                gripper_js = gripper_state_msgs[past[-1]][1]
 
         synced.append({
             "ts_ns":       ref_ts,
@@ -194,16 +196,14 @@ def extract_joints(js_msg) -> list[float]:
     return [name_to_pos.get(j, 0.0) for j in JOINT_ORDER]
 
 
-def extract_gripper_width(js_msg) -> float | None:
-    """
-    Extract gripper opening width (m) from an OnRobot JointState message.
-    Returns None if finger_joint is not present.
-    """
-    name_to_pos = dict(zip(js_msg.name, js_msg.position))
-    angle = name_to_pos.get("finger_joint")
+def extract_gripper_binary(msg) -> float:
+    """Convert rg2_finger_joint angle (JointState) to binary: 1.0=open, 0.0=closed."""
+    name_to_pos = dict(zip(msg.name, msg.position))
+    angle = name_to_pos.get("rg2_finger_joint")
     if angle is None:
-        return None
-    return gripper_angle_to_width(angle)
+        return 1.0
+    width_mm = _gripper_angle_to_width_mm(angle)
+    return 1.0 if width_mm >= GRIPPER_OPEN_THRESHOLD_MM else 0.0
 
 
 # ── MP4 Writer ────────────────────────────────────────────────────────────────
@@ -279,7 +279,7 @@ def write_meta(output_dir: Path, all_rows: list[dict], task_name: str, fps: int,
     # ── info.json ──────────────────────────────────────────────────────────
     state_dim   = len(all_rows[0]["observation.state"]) if all_rows else 6
     has_gripper = state_dim == 7
-    state_names = JOINT_ORDER + (["gripper_width_m"] if has_gripper else [])
+    state_names = JOINT_ORDER + (["gripper_open"] if has_gripper else [])
 
     info = {
         "codebase_version": "v2.1",
@@ -417,10 +417,10 @@ def convert(
     write_mp4(frames_global,  vid_dir / f"observation.images.camera_global_{ep_str}.mp4",  fps)
     print(f"      videos written to {vid_dir}")
 
-    # Detect gripper width availability from first synced frame
+    # Detect gripper state availability from first synced frame
     has_gripper = any(sf["gripper_js"] is not None for sf in synced)
     if has_gripper:
-        print("      gripper width detected — observation.state will be 7D (6 joints + width)")
+        print("      gripper state detected — observation.state will be 7D (6 joints + open/closed)")
     else:
         print("      no gripper state topic — observation.state is 6D")
 
@@ -433,8 +433,8 @@ def convert(
         arm_state = extract_joints(sf["joints"])
 
         if has_gripper:
-            gw = extract_gripper_width(sf["gripper_js"]) if sf["gripper_js"] else 0.0
-            state = arm_state + [gw if gw is not None else 0.0]
+            gs = extract_gripper_binary(sf["gripper_js"]) if sf["gripper_js"] else 1.0
+            state = arm_state + [gs]
         else:
             state = arm_state
 
@@ -443,8 +443,8 @@ def convert(
             next_sf = synced[fi + 1]
             next_arm = extract_joints(next_sf["joints"])
             if has_gripper:
-                ngw = extract_gripper_width(next_sf["gripper_js"]) if next_sf["gripper_js"] else 0.0
-                action = next_arm + [ngw if ngw is not None else 0.0]
+                ngs = extract_gripper_binary(next_sf["gripper_js"]) if next_sf["gripper_js"] else 1.0
+                action = next_arm + [ngs]
             else:
                 action = next_arm
         else:

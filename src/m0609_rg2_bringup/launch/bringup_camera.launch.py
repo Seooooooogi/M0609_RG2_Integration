@@ -153,6 +153,7 @@ def generate_launch_description():
             'source_list': ['/dsr01/joint_states', '/gripper_joint_states'],
             'rate':        100.0,
         }],
+        remappings=[('/joint_states', '/integrated_joint_states')],
     )
 
     # ── robot_state_publisher ─────────────────────────────────────────
@@ -167,6 +168,7 @@ def generate_launch_description():
                 value_type=str
             )
         }],
+        remappings=[('/joint_states', '/integrated_joint_states')],
     )
 
     # ── Static TF (world → base_link) ────────────────────────────────

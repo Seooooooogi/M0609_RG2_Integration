@@ -22,7 +22,7 @@ def generate_launch_description():
         DeclareLaunchArgument('port',    default_value='12345',          description='Robot port'),
         DeclareLaunchArgument('serial_gripper', default_value='147122075430',
                               description='RealSense serial — wrist/gripper camera'),
-        DeclareLaunchArgument('serial_global',  default_value='207222073252',
+        DeclareLaunchArgument('serial_global',  default_value='215322078366',
                               description='RealSense serial — global/fixed camera'),
     ]
 
@@ -154,6 +154,7 @@ def generate_launch_description():
             'source_list': ['/dsr01/joint_states', '/gripper_joint_states'],
             'rate':        100.0,
         }],
+        remappings=[('/joint_states', '/integrated_joint_states')],
     )
 
     # ── robot_state_publisher ─────────────────────────────────────────
@@ -168,6 +169,7 @@ def generate_launch_description():
                 value_type=str
             )
         }],
+        remappings=[('/joint_states', '/integrated_joint_states')],
     )
 
     # ── Static TF (world → base_link) ────────────────────────────────
@@ -180,21 +182,25 @@ def generate_launch_description():
     )
 
     # ── RealSense camera_gripper (wrist) ──────────────────────────────
-    # depth/pointcloud 비활성화 — OpenVLA는 RGB only
+    # depth 활성화 — object_detection이 aligned_depth_to_color로 3D 위치 계산
     camera_gripper_node = Node(
         package='realsense2_camera',
         executable='realsense2_camera_node',
         namespace='camera_gripper',
         name='camera_gripper',
         parameters=[{
-            'serial_no':           ParameterValue(LaunchConfiguration('serial_gripper'), value_type=str),
-            'enable_color':        True,
-            'enable_depth':        False,
-            'pointcloud.enable':   False,
-            'enable_sync':         True,
-            'color_width':         640,
-            'color_height':        480,
-            'color_fps':           30,
+            'serial_no':                    ParameterValue(LaunchConfiguration('serial_gripper'), value_type=str),
+            'enable_color':                 True,
+            'enable_depth':                 True,
+            'pointcloud.enable':            False,
+            'align_depth.enable':           True,
+            'enable_sync':                  True,
+            'color_width':                  640,
+            'color_height':                 480,
+            'color_fps':                    30,
+            'depth_width':                  640,
+            'depth_height':                 480,
+            'depth_fps':                    30,
         }],
         output='screen',
     )
