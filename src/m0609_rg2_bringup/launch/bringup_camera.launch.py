@@ -173,7 +173,8 @@ def generate_launch_description():
         arguments=['0.0', '0.0', '0.0', '0.0', '0.0', '0.0', 'world', 'base_link'],
     )
 
-    # ── RealSense 카메라 드라이버 ─────────────────────────────────────
+    # ── RealSense 카메라 드라이버 (real 모드만) ──────────────────────
+    is_real_camera = PythonExpression(["'", LaunchConfiguration('mode'), "' == 'real'"])
     realsense_node = Node(
         package='realsense2_camera',
         executable='realsense2_camera_node',
@@ -184,6 +185,7 @@ def generate_launch_description():
             'pointcloud.enable': True,
             'enable_sync': True,
         }],
+        condition=IfCondition(is_real_camera),
         output='screen',
     )
 

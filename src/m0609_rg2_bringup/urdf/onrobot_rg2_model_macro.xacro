@@ -1,4 +1,14 @@
 <?xml version="1.0"?>
+<!--
+  onrobot_rg2_model_macro.xacro
+  onrobot_rg_description의 동명 파일을 복사해 3건 수정
+  수정 사항:
+    1. right_outer_knuckle_joint: joint name 오타 및 parent/child 순서 오류 수정
+    2. onrobot_rg2 매크로: has_bracket 파라미터 추가 (브라켓 유무에 따른 origin 분기)
+    3. xacro:include: onrobot_rg2.xacro 경로를 m0609_rg2_bringup 내부로 변경
+  onrobot_rg2.xacro: base_link + 조립 매크로(finger_links, finger_joints) 정의.
+  이 파일이 onrobot_rg2.xacro를 include하며, 상위 URDF는 onrobot_rg2 매크로만 호출.
+-->
 <robot xmlns:xacro="http://ros.org/wiki/xacro">
   <xacro:include filename="$(find onrobot_rg_description)/urdf/onrobot_rg2_transmission.xacro" />
   <xacro:include filename="$(find onrobot_rg_description)/urdf/onrobot_rg2_gazebo.xacro" />

@@ -3,7 +3,7 @@
 OnRobot RG2 조인트 이름 변환 노드
 
 OnRobot 드라이버가 퍼블리시하는 /onrobot_joint_states 의 조인트 이름에
-rg2_ prefix를 붙여 /gripper_joint_states 로 재퍼블리시합니다.
+rg2_ prefix를 붙여 /gripper_joint_states 로 재퍼블리시.(URDF 조인트명 일치 목적)
 
 드라이버 조인트 이름:  finger_joint, left_inner_knuckle_joint, ...
 URDF 조인트 이름:     rg2_finger_joint, rg2_left_inner_knuckle_joint, ...

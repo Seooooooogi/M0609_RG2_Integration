@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-Standalone virtual gripper node for RViz visualization in DRCF emulator mode.
+DRCF 에뮬레이터 모드에서 RViz 그리퍼 시각화를 담당하는 가상 노드.
 
-Mirrors the /onrobot/sendCommand service interface of the real OnRobot driver
-so grip_test.py can call the same service regardless of mode.
+실제 OnRobot 드라이버의 /onrobot/sendCommand 서비스 인터페이스를 동일하게 구현해
+grip_test.py가 모드에 무관하게 같은 서비스를 호출.
 """
 import threading
 import time
@@ -53,7 +53,7 @@ class GripperVirtualNode(Node):
         with self._lock:
             self._target = target
 
-        # Block until animation reaches target
+        # 애니메이션이 목표 위치에 도달할 때까지 블로킹
         while True:
             with self._lock:
                 done = abs(self._position - target) < DONE_TOL
