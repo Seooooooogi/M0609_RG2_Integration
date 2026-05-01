@@ -45,11 +45,36 @@ git clone https://github.com/doosan-robotics/doosan-robot2
 
 # OnRobot RG2 패키지
 git clone https://github.com/ABC-iRobotics/onrobot-ros2
+
+# package.xml 의존성 자동 설치 (MoveIt2 등 누락 키 보강)
+cd ~/M0609_RG2_Integration/src
+rosdep install -r --from-paths . --ignore-src --rosdistro $ROS_DISTRO -y
 ```
+
+> `onrobot_rg_control` 의 `message_runtime` 키는 ROS1 잔재라 경고가 나오지만 `-r` 플래그로 무시되어 빌드엔 영향 없음.
 
 ---
 
 ## 초기 설정 (최초 1회)
+
+### DRCF 에뮬레이터 (virtual 모드 motion service용)
+
+virtual 모드에서 `movej` 등 motion service를 사용하려면 Doosan DRCF 에뮬레이터(Docker) 설치가 필요.
+
+```bash
+# Docker engine 미설치 시 먼저 설치: https://docs.docker.com/engine/install/ubuntu/
+
+# 현재 사용자를 docker 그룹에 추가 (launch에서 docker run 호출 시 필수)
+sudo usermod -aG docker $USER
+newgrp docker
+
+# 에뮬레이터 이미지 pull
+cd ~/M0609_RG2_Integration/src/doosan-robot2
+chmod +x ./install_emulator.sh
+sudo ./install_emulator.sh
+```
+
+> docker 그룹 가입 후 sudo 없이도 동작하지만 upstream 안내를 따라 sudo 형태로 기재. 그룹 변경 사항 적용을 위해 새 셸 또는 재로그인 필요.
 
 ### Real 모드 사전 조건
 
