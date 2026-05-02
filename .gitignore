@@ -30,3 +30,6 @@ src/onrobot-ros2/
 
 # 전달용 예제 패키지 (대외비)
 src/cobot1/
+
+# 외부 워크스페이스 (저작권 — 본 레포 소유 아님)
+src/cobot2_ws/
