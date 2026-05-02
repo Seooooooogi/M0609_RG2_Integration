@@ -9,7 +9,7 @@ Panels:
         - /Color Image1
         - /Color Image1/Topic1
       Splitter Ratio: 0.5
-    Tree Height: 951
+    Tree Height: 363
   - Class: rviz_common/Selection
     Name: Selection
   - Class: rviz_common/Tool Properties
@@ -206,7 +206,7 @@ Visualization Manager:
         Durability Policy: Volatile
         History Policy: Keep Last
         Reliability Policy: Best Effort
-        Value: /camera_gripper/yolo/image_raw/compressed
+        Value: /camera_gripper/camera_gripper/yolo/image_raw/compressed
       Value: true
     - Class: rviz_default_plugins/Image
       Enabled: false
@@ -220,7 +220,7 @@ Visualization Manager:
         Durability Policy: Volatile
         History Policy: Keep Last
         Reliability Policy: Best Effort
-        Value: /camera_gripper/aligned_depth_to_color/image_raw
+        Value: /camera/aligned_depth_to_color/image_raw
       Value: false
     - Alpha: 1
       Autocompute Intensity Bounds: true
@@ -252,7 +252,7 @@ Visualization Manager:
         Filter size: 10
         History Policy: Keep Last
         Reliability Policy: Best Effort
-        Value: /camera_gripper/depth/color/points
+        Value: /camera/depth/color/points
       Use Fixed Frame: true
       Use rainbow: true
       Value: true
@@ -302,25 +302,25 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz_default_plugins/Orbit
-      Distance: 3.0064024925231934
+      Distance: 1.1100196838378906
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: 0.17926040291786194
-        Y: 0.321169912815094
-        Z: -0.3538576662540436
+        X: 0.4022046625614166
+        Y: 0.23718413710594177
+        Z: 0.16301244497299194
       Focal Shape Fixed Size: true
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.785398006439209
+      Pitch: -0.2346017211675644
       Target Frame: <Fixed Frame>
       Value: Orbit (rviz)
-      Yaw: 0.785398006439209
+      Yaw: 0.6653974056243896
     Saved: ~
 Window Geometry:
   Color Image:
