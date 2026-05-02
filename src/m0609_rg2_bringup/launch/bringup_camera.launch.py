@@ -178,12 +178,17 @@ def generate_launch_description():
     realsense_node = Node(
         package='realsense2_camera',
         executable='realsense2_camera_node',
+        # 단일 prefix /camera_gripper/... 발행 (cobot2_yolo_ws 호환).
+        # realsense2_camera default(camera_namespace=camera + camera_name=camera)는
+        # /camera/camera/... 이중 prefix가 되므로 단일화.
+        name='camera_gripper',
         parameters=[{
             'enable_color': True,
             'enable_depth': True,
             'align_depth.enable': True,
             'pointcloud.enable': True,
             'enable_sync': True,
+            'rgb_camera.color_profile': '640x480x30',
         }],
         condition=IfCondition(is_real_camera),
         output='screen',

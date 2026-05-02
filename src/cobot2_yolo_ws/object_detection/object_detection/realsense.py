@@ -12,11 +12,11 @@ class ImgNode(Node):
         self.depth_frame = None
         self.intrinsics = None
         self.color_subscription = self.create_subscription(
-            Image, '/camera_gripper/camera_gripper/color/image_raw', self.color_callback, 10)
+            Image, '/camera_gripper/color/image_raw', self.color_callback, 10)
         self.depth_subscription = self.create_subscription(
-            Image, '/camera_gripper/camera_gripper/aligned_depth_to_color/image_raw', self.depth_callback, 10)
+            Image, '/camera_gripper/aligned_depth_to_color/image_raw', self.depth_callback, 10)
         self.camera_info_subscription = self.create_subscription(
-            CameraInfo, '/camera_gripper/camera_gripper/color/camera_info', self.camera_info_callback, 10)
+            CameraInfo, '/camera_gripper/color/camera_info', self.camera_info_callback, 10)
         self.get_logger().info("Waiting for client's call...")
 
     def camera_info_callback(self, msg):

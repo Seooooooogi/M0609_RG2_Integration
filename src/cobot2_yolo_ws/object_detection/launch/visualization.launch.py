@@ -51,13 +51,11 @@ def generate_launch_description():
 
     # ─── RealSense 노드 (호스트에서만 실행됨) ────────────────────────────
     # depth/IMU 모두 OFF — visualizer는 color만 사용. 토픽 트래픽/CPU 절약 효과.
-    # namespace + name 둘 다 'camera_gripper' 라 토픽 prefix는
-    #   /camera_gripper/camera_gripper/...  (dual-camera 브랜치 컨벤션 호환)
+    # name='camera_gripper' 단독 → 토픽 prefix /camera_gripper/...
     # ────────────────────────────────────────────────────────────────────
     realsense_node = Node(
         package='realsense2_camera',
         executable='realsense2_camera_node',
-        namespace='camera_gripper',
         name='camera_gripper',
         parameters=[{
             'enable_color': True,

@@ -132,7 +132,7 @@ class YoloVisualizerNode(Node):
         # 토픽 이름은 image_transport 컨벤션(``.../image_raw/compressed``)을 따른다.
         self.publisher = self.create_publisher(
             CompressedImage,
-            '/camera_gripper/camera_gripper/yolo/image_raw/compressed',
+            '/camera_gripper/yolo/image_raw/compressed',
             qos_profile_sensor_data,
         )
         # timer 주기. 추론+JPEG encode가 이 주기 안에 들어와야 hz가 유지됨.
