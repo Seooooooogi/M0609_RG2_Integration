@@ -18,7 +18,7 @@ ROBOT_ID = "dsr01"
 ROBOT_MODEL = "m0609"
 VELOCITY, ACC = 60, 60
 LINEAR_VELOCITY, LINEAR_ACC = 60, 60
-# BUCKET_POS = [445.5, -242.6, 174.4, 156.4, 180.0, -112.5]
+BUCKET_POS = [671.53, -33.09, 354.29, 133.47, -177.19, 134.81]
 GRIPPER_NAME = "rg2"
 TOOLCHARGER_IP = "192.168.1.1"
 TOOLCHARGER_PORT = "502"
@@ -146,6 +146,14 @@ class RobotController(Node):
 
         while gripper.get_status()[0]:
             time.sleep(0.5)
+        mwait()
+
+        # lift 100mm to clear surrounding objects before transit
+        lift_pos = list(target_pos)
+        lift_pos[2] += 100
+        movel(lift_pos, vel=LINEAR_VELOCITY, acc=LINEAR_ACC)
+        mwait()
+        movel(BUCKET_POS, vel=LINEAR_VELOCITY, acc=LINEAR_ACC)
         mwait()
 
         gripper.open_gripper()
