@@ -131,31 +131,46 @@ virtual 모드에서 `gripper_virtual_node`(bringup에 포함)가 `/onrobot/send
 
 ### RealSense 주요 토픽
 
+bringup_camera.launch.py는 RealSense 노드를 `name='camera_gripper'`로 띄운다 (cobot2_yolo_ws 호환, 단일 prefix).
+
 | 토픽 | 설명 |
 |------|------|
-| `/camera/color/image_raw` | RGB 컬러 이미지 |
-| `/camera/aligned_depth_to_color/image_raw` | 컬러 정렬 뎁스 이미지 |
-| `/camera/depth/color/points` | RGB 포인트클라우드 |
-| `/camera/color/camera_info` | 컬러 카메라 내부 파라미터 |
+| `/camera_gripper/color/image_raw` | RGB 컬러 이미지 |
+| `/camera_gripper/aligned_depth_to_color/image_raw` | 컬러 정렬 뎁스 이미지 |
+| `/camera_gripper/depth/color/points` | RGB 포인트클라우드 |
+| `/camera_gripper/color/camera_info` | 컬러 카메라 내부 파라미터 |
 
 `default.rviz` 사전 구성 display:
-- **Color Image** — `/camera/color/image_raw`
-- **Depth Image** — `/camera/aligned_depth_to_color/image_raw`
-- **PointCloud2** — `/camera/depth/color/points`
+- **Color Image** — `/camera_gripper/yolo/image_raw/compressed` (시연 시 yolo bbox 표시. 카메라 raw로 보고 싶으면 토픽을 `/camera_gripper/color/image_raw`로 변경)
+- **Depth Image** — `/camera_gripper/aligned_depth_to_color/image_raw`
+- **PointCloud2** — `/camera_gripper/depth/color/points`
 
 ---
 
-## YOLO Object Detection Visualizer (시연용)
+## YOLO Pick & Place 시연 (visualizer + detection + robot_control)
 
-`feat/yolo-detection-visualization` 브랜치에서 추가. RealSense color → YOLOv8 추론 → bbox/라벨/score 그린 이미지를 `CompressedImage`로 발행해 `rqt_image_view` 에서 실시간 확인.
+`feat/yolo-detection-visualization` 브랜치. RealSense color → YOLOv8 추론 → bbox 시각화(CompressedImage) + `/get_3d_position` 서비스 → 로봇 pick & place 동작.
 
-검증된 성능 (RTX 4060 Laptop, 1280×720 입력): **avg 30.000 Hz · jitter std 1 ms**.
-자세한 측정/분석은 [`docs/yolo_visualizer_performance_report.md`](docs/yolo_visualizer_performance_report.md) 참조.
+검증된 시각화 성능 (RTX 4070 Laptop, 1280×720 기준): **avg 30Hz · jitter std 1 ms**. 시연 시 부하 줄이려면 `640x480x30`. 상세는 [`docs/yolo_visualizer_performance_report.md`](docs/yolo_visualizer_performance_report.md), 노드 그래프는 [`docs/yolo_detection_pipeline.md`](docs/yolo_detection_pipeline.md).
 
 ### 사전 조건
 
-- NVIDIA GPU + `nvidia-container-toolkit`
-- 도커 이미지 `zium-detection:humble-cu118` (ROS2 Humble + ultralytics + torch + CUDA 11.8) — 호스트에 ultralytics가 없어 추론은 도커 안에서만 수행
+- NVIDIA GPU + driver
+- `zium-detection:humble-cu118` 도커 이미지 — ultralytics+torch+CUDA 런타임. **이 이미지는 본 레포에 없음** — 외부 `cobot2_block_construction` 빌드 재활용. 신규 셋업자용 옵션은 [`docs/DEVELOPMENT_ROADMAP.md`](docs/DEVELOPMENT_ROADMAP.md) 참조.
+- 호스트와 도커 양쪽 모두 `rmw_cyclonedds_cpp` (FastRTPS는 IPC namespace 격리로 sub 불안정)
+
+### 호스트 일회성 셋업 (자동화)
+
+```bash
+~/cobot2_block_construction/scripts/setup_demo_host.sh
+sudo apt install -y ros-humble-image-transport-plugins   # rqt에서 compressed 토픽 디코드
+python3 -m pip install --user --upgrade "scipy>=1.13"    # numpy 2.x 호환
+```
+
+`setup_demo_host.sh`는 멱등이며 다음을 처리:
+- `nvidia-container-toolkit` 설치 + Docker nvidia runtime 등록
+- 호스트 `rmw_cyclonedds_cpp` 설치 + `~/.bashrc`에 `cyclone`/`fastdds` alias 추가
+- `zium-detection` 이미지에 cyclone DDS 패치 (commit overwrite, 원본 ENTRYPOINT/CMD 보존)
 
 ### 빌드
 
@@ -165,35 +180,63 @@ colcon build --symlink-install --packages-select object_detection od_msg robot_c
 source install/setup.bash
 ```
 
-> 원본 `src/cobot2_ws/`는 동일한 패키지명을 가져 충돌하므로 `COLCON_IGNORE`로 빌드 제외. 시연 대상은 `src/cobot2_yolo_ws/` 카피본.
+> 원본 `src/cobot2_ws/`는 동일한 패키지명 충돌 회피용 `COLCON_IGNORE`. 시연 대상은 `src/cobot2_yolo_ws/` 카피본.
 
-### 실행 (호스트 RealSense + 도커 visualizer 분리)
+### 실행 — 4개 터미널
 
-**호스트 — RealSense launch**:
+각 터미널 첫 줄에 `cyclone` 토글 필수.
+
+**터미널 1 — 호스트 bringup (RealSense + 로봇팔 + RViz)**
 ```bash
-RMW_IMPLEMENTATION=rmw_cyclonedds_cpp \
-  ros2 launch object_detection visualization.launch.py
-```
-> 같은 launch에 visualizer 노드도 포함되지만 호스트엔 ultralytics가 없어 ImportError로 종료된다 (의도). RealSense 노드만 남는다.
-
-**도커 — visualizer**:
-```bash
-docker run -d --name zium_visualizer --network host --ipc=host --gpus all \
-  -e RMW_IMPLEMENTATION=rmw_cyclonedds_cpp \
-  -v ~/M0609_RG2_Integration:/home/rokey/M0609_RG2_Integration \
-  -w /home/rokey/M0609_RG2_Integration \
-  --entrypoint bash zium-detection:humble-cu118 \
-  -c "source /opt/ros/humble/setup.bash && source install/setup.bash && \
-      ros2 run object_detection yolo_visualizer"
+cyclone
+ros2 launch m0609_rg2_bringup bringup_camera.launch.py mode:=real host:=192.168.1.100
 ```
 
-**시각화**:
+RealSense는 `name='camera_gripper'`로 떠서 `/camera_gripper/...` 단일 prefix로 발행. RViz의 Color Image display는 default가 `/camera_gripper/yolo/image_raw/compressed` — yolo 노드가 뜨면 자동으로 bbox 표시.
+
+**터미널 2 — Docker yolo_visualizer**
 ```bash
-RMW_IMPLEMENTATION=rmw_cyclonedds_cpp \
-  rqt_image_view /camera_gripper/camera_gripper/yolo/image_raw/compressed
+~/M0609_RG2_Integration/scripts/run_yolo_visualizer.sh
+docker logs -f zium_visualizer    # 모델 로드 확인 후 Ctrl+C로 빠짐
 ```
 
-### 토글 가능한 launch arg
+`scripts/run_yolo_visualizer.sh`는 `zium-detection` 컨테이너에 워크스페이스를 mount하고 cyclone RMW로 `yolo_visualizer`를 띄움.
+
+**터미널 3 — Docker detection (`/get_3d_position` 서비스)**
+```bash
+docker exec zium_visualizer bash -c 'source /opt/ros/humble/setup.bash && source /home/rokey/M0609_RG2_Integration/install/setup.bash && cd /home/rokey/M0609_RG2_Integration && ros2 run object_detection object_detection'
+```
+
+attached 실행 — stderr 보임. 이 노드가 없으면 robot_control이 service 대기로 stall.
+
+**터미널 4 — 호스트 robot_control (pick & place)**
+```bash
+cyclone
+ros2 run robot_control robot_control
+```
+
+프롬프트: `Pick target(s) by number (space-separated, e.g. '1 3')` — 클래스 번호(`0:drill, 1:hammer, 2:pliers, 3:screwdriver, 4:wrench`)로 입력.
+
+### 검증
+
+별도 터미널에서:
+```bash
+cyclone
+ros2 service list | grep get_3d                                    # /get_3d_position 보여야 함
+ros2 topic hz /camera_gripper/color/image_raw                       # ~30Hz
+ros2 topic hz /camera_gripper/yolo/image_raw/compressed             # ~30Hz with payload
+ros2 topic info /camera_gripper/aligned_depth_to_color/image_raw -v # Publisher RELIABLE 확인
+```
+
+### 종료
+
+```bash
+docker rm -f zium_visualizer       # 컨테이너 정리 (detection 노드도 같이 종료)
+# 각 호스트 터미널 Ctrl+C
+docker image prune -f              # (선택) commit 누적된 dangling 이미지 정리
+```
+
+### 토글 가능한 launch arg (visualization.launch.py 사용 시)
 
 | arg | default | 설명 |
 |------|---------|------|
@@ -202,17 +245,11 @@ RMW_IMPLEMENTATION=rmw_cyclonedds_cpp \
 | `jpeg_quality` | `80` | JPEG 압축 품질 (1~100) |
 | `color_profile` | `1280x720x30` | RealSense color 프로파일. 480p 원하면 `640x480x30` |
 
-예: `ros2 launch object_detection visualization.launch.py inference_rate_hz:=15.0 color_profile:=640x480x30`
+> **주의**: 위 표는 `visualization.launch.py` 단독 모드(시각화만, pick & place 없음) 한정. 본 시연(옵션 B)은 `bringup_camera.launch.py`를 쓰므로 `bringup_camera.launch.py`의 `realsense_node` parameters dict를 직접 수정하거나 launch arg로 추출.
 
-### 주의사항
+### 발행 토픽
 
-- **RMW 일치 필수**: 호스트와 도커 양쪽 모두 `rmw_cyclonedds_cpp`. FastRTPS는 도커 IPC namespace 격리로 데이터 sub가 막힘 (`--ipc=host` 줘도 불안정).
-- **출력은 압축 토픽 한 가지**: `.../yolo/image_raw/compressed` (`sensor_msgs/CompressedImage`, JPEG). raw는 발행하지 않음 — 시연 전용이므로 대역폭/jitter 절약.
-- **호스트 `ros2 topic list`에는 yolo 토픽이 안 보일 수 있음**: rqt와 도커 안에서는 정상. ROS2 daemon 캐시 이슈로 추정. 시연 영향 없음.
-
-### 파이프라인 도식
-
-상세 노드 그래프 + 데이터 흐름은 [`docs/yolo_detection_pipeline.md`](docs/yolo_detection_pipeline.md) 참조.
+- `/camera_gripper/yolo/image_raw/compressed` — `sensor_msgs/CompressedImage`, JPEG q80. raw는 발행 X (대역폭/jitter 절약).
 
 ---
 
